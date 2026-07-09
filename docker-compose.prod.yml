@@ -1,0 +1,30 @@
+services:
+  shop-frontend:
+    image: "${APP_IMAGE:?APP_IMAGE requis}"
+    container_name: shop-frontend
+    pull_policy: always
+    restart: unless-stopped
+    environment:
+      NODE_ENV: "production"
+      PORT: "3000"
+      BACKEND_URL: "https://kernel-core.yowyob.com"
+      KERNEL_X_CLIENT_ID: "ksm-eshop"
+      KERNEL_X_API_KEY: "JzpzLejNvk1a6s73CYrBk7ciFP6qbIG3lXZNWIjP"
+    healthcheck:
+      test: ["CMD-SHELL","wget -qO- http://127.0.0.1:3000/ >/dev/null 2>&1 || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 15
+      start_period: 45s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.shop.rule=Host(`shop.yowyob.com`)"
+      - "traefik.http.routers.shop.entrypoints=websecure"
+      - "traefik.http.routers.shop.tls=true"
+      - "traefik.http.routers.shop.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.shop.priority=10"
+      - "traefik.http.services.shop.loadbalancer.server.port=3000"
+      - "traefik.docker.network=yowyob"
+    networks: [yowyob]
+networks:
+  yowyob: { external: true, name: yowyob }

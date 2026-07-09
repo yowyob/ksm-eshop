@@ -1,0 +1,31 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Outfit', var(--font-geist-sans), sans-serif;
+  --font-mono: var(--font-geist-mono);
+}
+
+:root {
+  --background: #f3f4f6; /* zinc-100 - Clairement distinct du blanc */
+  --foreground: #09090b; /* zinc-950 - Noir profond */
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Amélioration visuelle des focus et sélections */
+::selection {
+  background-color: #3b82f6;
+  color: white;
+}
+
+@layer base {
+  * {
+    @apply border-zinc-300; /* Bordures plus sombres par défaut */
+  }
+}
