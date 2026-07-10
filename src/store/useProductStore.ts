@@ -99,13 +99,13 @@ export const useProductStore = create<ProductState>()(
               tenantId: p.tenantId || 't1',
               organizationId: p.organizationId || organizationId,
               code: p.sku || p.code || 'PRD-UNK',
-              name: p.name || 'Produit sans nom',
+              name: p.name || p.designation || 'Produit sans nom',
               description: p.description || '',
               categoryId: p.categoryCode || p.categoryId || 'c1',
               status: p.status || 'ACTIVE',
               createdAt: p.createdAt || new Date().toISOString(),
               isFeatured: p.isFeatured || false,
-              imageUrl: p.photo || p.imageUrl || 'https://images.unsplash.com/photo-1549931319-a545dcf3bc73?w=500&q=80',
+              imageUrl: p.photo || p.imageUrl || null,
               stock: p.quantity || 0,
             }));
 

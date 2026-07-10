@@ -290,7 +290,8 @@ export default function AdminInventoryPage() {
                   </thead>
                   <tbody className="divide-y divide-zinc-100 bg-white">
                     {variants.filter(v => products.find(p => p.id === v.productId)?.tenantId === tenant.id).map(v => {
-                      const stockVal = getVariantStock(v.id, currentWarehouseId);
+                      const prod = products.find(p => p.id === v.productId);
+                      const stockVal = prod?.stock || 0;
                       return (
                         <tr key={v.id} className="hover:bg-zinc-50">
                           <td className="p-4">

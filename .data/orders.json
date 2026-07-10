@@ -1,0 +1,225 @@
+[
+  {
+    "organizationId": "fac51104-41e7-4760-bdf4-4abd8f0ea059",
+    "counterpartyThirdPartyId": "00000000-0000-0000-0000-000000000000",
+    "customerName": "nao592",
+    "totalAmount": 17998,
+    "orderNumber": "KSM-725363",
+    "currency": "FCFA",
+    "lines": [
+      {
+        "productId": "dc584237-e628-4f8e-8c38-3266f90c6cdc",
+        "name": "PC Gamer ASUS ROG Strix",
+        "quantity": 1,
+        "unitPrice": 17998,
+        "taxRate": 0,
+        "id": "line-8ccmjix"
+      }
+    ],
+    "createdAt": "2026-07-10T10:30:44.369Z",
+    "status": "PENDING",
+    "id": "KSM-725363",
+    "documentNumber": "KSM-725363"
+  },
+  {
+    "organizationId": "fac51104-41e7-4760-bdf4-4abd8f0ea059",
+    "counterpartyThirdPartyId": "00000000-0000-0000-0000-000000000000",
+    "customerName": "netflixaf922",
+    "totalAmount": 17998,
+    "orderNumber": "KSM-418640",
+    "currency": "FCFA",
+    "lines": [
+      {
+        "productId": "dc584237-e628-4f8e-8c38-3266f90c6cdc",
+        "name": "PC Gamer ASUS ROG Strix",
+        "quantity": 1,
+        "unitPrice": 17998,
+        "taxRate": 0,
+        "id": "line-2qvqoig"
+      }
+    ],
+    "createdAt": "2026-07-10T10:13:41.877Z",
+    "status": "PENDING",
+    "id": "KSM-418640",
+    "documentNumber": "KSM-418640"
+  },
+  {
+    "organizationId": "fac51104-41e7-4760-bdf4-4abd8f0ea059",
+    "counterpartyThirdPartyId": "00000000-0000-0000-0000-000000000000",
+    "customerName": "netflixaf922",
+    "totalAmount": 5000,
+    "orderNumber": "KSM-702807",
+    "currency": "FCFA",
+    "lines": [
+      {
+        "productId": "7d1004f4-5abd-4c4f-aeb8-ae88876d3621",
+        "name": "kit Arduino",
+        "quantity": 1,
+        "unitPrice": 5000,
+        "taxRate": 0,
+        "id": "line-6oahmam"
+      }
+    ],
+    "createdAt": "2026-07-10T08:39:42.525Z",
+    "status": "PENDING",
+    "id": "KSM-702807",
+    "documentNumber": "KSM-702807"
+  },
+  {
+    "organizationId": "fac51104-41e7-4760-bdf4-4abd8f0ea059",
+    "counterpartyThirdPartyId": "00000000-0000-0000-0000-000000000000",
+    "customerName": "utilisat932",
+    "totalAmount": 5000,
+    "orderNumber": "KSM-593392",
+    "currency": "FCFA",
+    "lines": [
+      {
+        "productId": "7d1004f4-5abd-4c4f-aeb8-ae88876d3621",
+        "name": "kit Arduino",
+        "quantity": 1,
+        "unitPrice": 5000,
+        "taxRate": 0,
+        "id": "line-jg7phdb"
+      }
+    ],
+    "createdAt": "2026-07-10T08:33:59.390Z",
+    "status": "PENDING",
+    "id": "KSM-593392",
+    "documentNumber": "KSM-593392"
+  },
+  {
+    "organizationId": "fac51104-41e7-4760-bdf4-4abd8f0ea059",
+    "counterpartyThirdPartyId": "00000000-0000-0000-0000-000000000000",
+    "customerName": "utilisat932",
+    "totalAmount": 2505000,
+    "orderNumber": "KSM-646997",
+    "currency": "FCFA",
+    "lines": [
+      {
+        "productId": "cc0909ab-dac6-4a8b-abeb-12413f065a83",
+        "name": "MacBook Pro M1",
+        "quantity": 1,
+        "unitPrice": 2500000,
+        "taxRate": 0,
+        "id": "line-136qw85"
+      },
+      {
+        "productId": "7d1004f4-5abd-4c4f-aeb8-ae88876d3621",
+        "name": "kit Arduino",
+        "quantity": 1,
+        "unitPrice": 5000,
+        "taxRate": 0,
+        "id": "line-98ma5p5"
+      }
+    ],
+    "createdAt": "2026-07-10T08:31:40.686Z",
+    "status": "PENDING",
+    "id": "KSM-646997",
+    "documentNumber": "KSM-646997"
+  },
+  {
+    "organizationId": "fac51104-41e7-4760-bdf4-4abd8f0ea059",
+    "counterpartyThirdPartyId": "00000000-0000-0000-0000-000000000000",
+    "customerName": "utilisat932",
+    "totalAmount": 17998,
+    "orderNumber": "KSM-593082",
+    "currency": "FCFA",
+    "lines": [
+      {
+        "productId": "dc584237-e628-4f8e-8c38-3266f90c6cdc",
+        "name": "PC Gamer ASUS ROG Strix",
+        "quantity": 1,
+        "unitPrice": 17998,
+        "taxRate": 0,
+        "id": "line-jh336bu"
+      }
+    ],
+    "createdAt": "2026-07-10T08:20:33.317Z",
+    "status": "PENDING",
+    "id": "KSM-593082",
+    "documentNumber": "KSM-593082"
+  },
+  {
+    "organizationId": "fac51104-41e7-4760-bdf4-4abd8f0ea059",
+    "counterpartyThirdPartyId": "00000000-0000-0000-0000-000000000000",
+    "customerName": "utilisat932",
+    "totalAmount": 2500000,
+    "orderNumber": "KSM-525380",
+    "currency": "FCFA",
+    "lines": [
+      {
+        "productId": "cc0909ab-dac6-4a8b-abeb-12413f065a83",
+        "name": "Téléphone Pro 250",
+        "image": "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=500&q=80",
+        "quantity": 1,
+        "unitPrice": 2500000,
+        "taxRate": 0,
+        "id": "line-mzrpo8j"
+      }
+    ],
+    "createdAt": "2026-07-10T07:35:54.539Z",
+    "status": "PENDING",
+    "id": "KSM-525380",
+    "documentNumber": "KSM-525380"
+  },
+  {
+    "organizationId": "fac51104-41e7-4760-bdf4-4abd8f0ea059",
+    "counterpartyThirdPartyId": "00000000-0000-0000-0000-000000000000",
+    "customerName": "Client Anonyme",
+    "totalAmount": 18000,
+    "orderNumber": "KSM-700828",
+    "currency": "FCFA",
+    "lines": [
+      {
+        "productId": "dc584237-e628-4f8e-8c38-3266f90c6cdc",
+        "name": "Produit KSM",
+        "quantity": 1,
+        "unitPrice": 18000,
+        "taxRate": 0,
+        "id": "line-aemgz2f"
+      }
+    ],
+    "createdAt": "2026-07-10T07:19:28.095Z",
+    "status": "PENDING",
+    "id": "KSM-700828",
+    "documentNumber": "KSM-700828"
+  },
+  {
+    "organizationId": "fac51104-41e7-4760-bdf4-4abd8f0ea059",
+    "counterpartyThirdPartyId": "00000000-0000-0000-0000-000000000000",
+    "customerName": "naomi711",
+    "totalAmount": 15022998,
+    "orderNumber": "KSM-812546",
+    "currency": "FCFA",
+    "lines": [
+      {
+        "productId": "cc0909ab-dac6-4a8b-abeb-12413f065a83",
+        "name": "MacBook Pro M1",
+        "quantity": 6,
+        "unitPrice": 2500000,
+        "taxRate": 0,
+        "id": "line-4xrxdef"
+      },
+      {
+        "productId": "dc584237-e628-4f8e-8c38-3266f90c6cdc",
+        "name": "PC Gamer ASUS ROG Strix",
+        "quantity": 1,
+        "unitPrice": 17998,
+        "taxRate": 0,
+        "id": "line-py7rw8p"
+      },
+      {
+        "productId": "7d1004f4-5abd-4c4f-aeb8-ae88876d3621",
+        "name": "kit Arduino",
+        "quantity": 1,
+        "unitPrice": 5000,
+        "taxRate": 0,
+        "id": "line-1gfz67k"
+      }
+    ],
+    "createdAt": "2026-07-10T12:20:17.658Z",
+    "status": "PENDING",
+    "id": "KSM-812546",
+    "documentNumber": "KSM-812546"
+  }
+]

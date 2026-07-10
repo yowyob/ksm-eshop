@@ -8,7 +8,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { CheckCircle2, Wallet, ArrowLeft, Printer, Download, ShieldCheck } from 'lucide-react';
 import { useOrderStore, Order } from '@/store/useOrderStore';
-import { useInventoryStore } from '@/store/useInventoryStore';
+
 import { TENANTS } from '@/lib/mock-data';
 import { useCustomerAuthStore } from '@/store/useCustomerAuthStore';
 import { useProductStore } from '@/store/useProductStore';
@@ -18,7 +18,7 @@ export default function CheckoutPage() {
   const router = useRouter();
   const { items, clearCart } = useCartStore();
   const { addOrder } = useOrderStore();
-  const { dispatchSalesOrder } = useInventoryStore();
+
   const [isProcessing, setIsProcessing] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
   const [orderData, setOrderData] = useState<any>(null);
@@ -46,15 +46,31 @@ export default function CheckoutPage() {
     await new Promise((resolve) => setTimeout(resolve, 1500));
     
     const tenant = TENANTS.find(t => t.slug === tenantId);
+    const actualTenantId = tenant?.id || (typeof tenantId === 'string' ? tenantId : 't1');
     const randomId = Math.floor(100000 + Math.random() * 900000);
     const orderId = `KSM-${randomId}`;
 
-    // Call dispatchSalesOrder to log outbound movements
-    await dispatchSalesOrder(
-      tenant?.id || 't1',
-      orderId,
-      items.map(item => ({ variantId: item.variantId, quantity: item.quantity }))
-    );
+    const displayName = customerName || 'Client Anonyme';
+
+    const orderPayload = {
+      id: orderId,
+      customerName: displayName,
+      customerId: user?.id || '00000000-0000-0000-0000-000000000000',
+      total: totalPrice,
+      status: 'pending' as const,
+      date: new Date().toLocaleDateString('fr-FR', {
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+      tenantId: actualTenantId,
+      items: items.map(item => ({
+        id: item.variantId,
+        name: item.name,
+        image: item.image,
+        quantity: item.quantity,
+        price: item.price
+      }))
+    };
 
     // Optimistically decrease stock in useProductStore
     const { decreaseProductStock } = useProductStore.getState();
@@ -63,47 +79,11 @@ export default function CheckoutPage() {
     });
     
     const newOrder: Order = {
-      id: orderId,
-      customerName: customerName || 'Client KSM',
-      customerId: user?.id || '00000000-0000-0000-0000-000000000000',
-      total: totalPrice,
-      status: 'pending',
-      date: new Date().toLocaleString('fr-FR', { 
-        day: 'numeric', 
-        month: 'long', 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      }),
-      tenantId: tenant?.id || 't1',
+      ...orderPayload,
       items: [...items],
     };
 
-    try {
-      const res = await fetch('/api/bon-commande', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          counterpartyThirdPartyId: user?.id || '00000000-0000-0000-0000-000000000000',
-          currency: 'FCFA',
-          organizationId: tenant?.organizationId || 'o1',
-          lines: items.map(item => ({
-            productId: item.productId || item.variantId, // fallback
-            quantity: item.quantity,
-            unitPrice: item.price,
-            taxRate: 0
-          }))
-        })
-      });
-
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        console.error('Erreur API bon-commande:', data);
-      }
-    } catch (e) {
-      console.error('Fetch error bon-commande', e);
-    }
+    // L'appel POST bon-commande est maintenant géré par addOrder dans le store
 
     addOrder(newOrder);
     setOrderData(newOrder);

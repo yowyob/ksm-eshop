@@ -1,0 +1,351 @@
+\documentclass[12pt, a4paper]{report}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{geometry}
+\usepackage{fancyhdr}
+\usepackage{setspace}
+\geometry{a4paper, margin=2.5cm}
+\title{Rapport de Projet : KSM E-Shop \\ Intégration Next.js et ERP YowYob}
+\author{}
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{Rapport de Projet KSM E-Shop}
+\cfoot{\thepage}
+\title{
+    \vspace{2cm}
+    \Huge \textbf{Rapport de Conception et d'Architecture}\\
+    \vspace{0.5cm}
+    \Large \textit{Projet : Plateforme Multi-Tenant KSM E-Shop et Intégration ERP Kernel-Core}\\
+    \vspace{2cm}
+}
+\author{Équipe de Développement Frontend}
+\date{\today}
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+\chapter*{Résumé}
+\addcontentsline{toc}{chapter}{Résumé}
+Ce rapport détaille la conception, l'analyse et l'implémentation du projet KSM E-shop, une plateforme de commerce électronique multi-locataires (multi-tenant) développée avec Next.js. Le projet s'appuie sur une intégration robuste avec le backend ERP de l'entreprise YowYob (Kernel-Core). L'objectif principal est de fournir une interface utilisateur moderne et réactive tout en déléguant la logique métier complexe (catalogue, comptabilité, facturation) au système central via des routes API sécurisées.
+\onehalfspacing
+Ce rapport documente de manière exhaustive la conception, l'analyse et l'implémentation du projet de refonte frontend \textbf{KSM E-Shop}, une plateforme de commerce électronique innovante. Ce projet s'articule autour d'une architecture multi-locataires (multi-tenant) développée avec le framework Next.js. La complexité majeure du projet réside dans son intégration robuste et sécurisée avec le système ERP central nommé \textbf{Kernel-Core} développé par l'entreprise YowYob. L'objectif de cette démarche est de dissocier complètement la logique d'affichage, fluide et réactive, de la logique métier lourde (gestion fine des catalogues, des stocks, de la comptabilité, et de la facturation). Grâce à l'utilisation stratégique de routes API faisant office de proxies, le système garantit des performances optimales tout en respectant de strictes contraintes de sécurité.
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+This report details the design, analysis, and implementation of the KSM E-shop project, a multi-tenant e-commerce platform developed with Next.js. The project relies on a robust integration with the ERP backend of YowYob (Kernel-Core). The main objective is to provide a modern and responsive user interface while delegating complex business logic (catalog, accounting, billing) to the core system via secure API routes.
+
+This comprehensive report documents the design, analysis, and implementation of the \textbf{KSM E-Shop} frontend refactoring project, an innovative multi-tenant e-commerce platform developed using the Next.js framework. The core complexity of this endeavor lies in its robust and secure integration with the central ERP system named \textbf{Kernel-Core} developed by YowYob. The primary objective is to strictly decouple the fluid, responsive user interface from the heavy backend business logic (comprehensive catalog management, inventory tracking, accounting, and billing). Through the strategic implementation of API routes acting as proxies, the architecture guarantees optimal web performance while adhering to stringent security constraints.
+\chapter*{Liste des Abréviations}
+\addcontentsline{toc}{chapter}{Liste des Abréviations}
+\begin{itemize}
+    \item \textbf{API} : Application Programming Interface
+    \item \textbf{ERP} : Enterprise Resource Planning
+    \item \textbf{ERP} : Enterprise Resource Planning (Progiciel de Gestion Intégré)
+    \item \textbf{JWT} : JSON Web Token
+    \item \textbf{SSR} : Server-Side Rendering
+    \item \textbf{SKU} : Stock Keeping Unit
+    \item \textbf{SSR} : Server-Side Rendering (Rendu Côté Serveur)
+    \item \textbf{CSR} : Client-Side Rendering (Rendu Côté Client)
+    \item \textbf{SKU} : Stock Keeping Unit (Unité de gestion de stock)
+    \item \textbf{CORS} : Cross-Origin Resource Sharing
+\end{itemize}
+\chapter*{Glossaire}
+\addcontentsline{toc}{chapter}{Glossaire}
+\begin{description}
+    \item[Multi-tenant] Architecture logicielle où une seule instance de l'application sert plusieurs organisations ou locataires.
+    \item[Zustand] Bibliothèque de gestion d'état pour les applications React.
+    \item[Kernel-Core] Système central (backend) développé par YowYob, gérant les données métier.
+    \item[Multi-tenant (Multi-locataire)] Architecture logicielle permettant à une seule instance d'une application de servir plusieurs organisations distinctes (les "tenants"), tout en garantissant l'étanchéité et l'isolation des données entre elles.
+    \item[Zustand] Bibliothèque minimaliste et performante de gestion d'état global pour les applications React.
+    \item[Infrastructure globale] Nom du réseau privé et serveur hébergeant les microservices.
+    \item[Kernel-Core] Le cœur de l'ERP métier (backend) fourni par YowYob, exposant les services RESTful pour la gestion complète de l'entreprise.
+    \item[Proxy] Composant logiciel intermédiaire interceptant et relayant les requêtes réseau pour des raisons de sécurité ou de transformation de données.
+\end{description}
+\chapter*{Liste des Figures}
+\addcontentsline{toc}{chapter}{Liste des Figures}
+\listoffigures
+\vspace{1cm}
+\textit{Note : Les diagrammes décrits dans ce document sont fournis en annexe ou dans le référentiel de code. Les espaces d'insertion d'images sont prévus dans les chapitres correspondants.}
+\newpage
+\chapter*{INTRODUCTION}
+\addcontentsline{toc}{chapter}{INTRODUCTION}
+Dans le cadre de la numérisation des commerces, la mise en place d'une plateforme e-commerce performante est essentielle. Ce projet vise à concevoir une interface frontend moderne (KSM E-shop) capable de s'interfacer avec une infrastructure backend existante et complexe (YowYob Kernel-Core). Ce rapport présente l'état de l'art, l'analyse des besoins, l'architecture du système et les choix technologiques adoptés pour mener à bien cette intégration.
+
+Dans un contexte de transformation numérique accélérée, les entreprises cherchent à proposer des expériences d'achat fluides, rapides et hautement personnalisables. Le projet de refonte KSM E-Shop s'inscrit dans cette dynamique. Il vise à construire un frontend Headless capable de s'interfacer de manière transparente avec un système existant très lourd : le backend ERP \textbf{Kernel-Core} de YowYob. Ce rapport s'attache à décomposer les étapes de ce projet ambitieux. Nous explorerons d'abord l'état de l'art justifiant l'approche "Headless", puis nous analyserons les besoins spécifiques des parties prenantes. Ensuite, nous procéderons à une dissection de l'architecture existante avant de détailler la conception de notre solution à travers divers diagrammes UML. Enfin, nous aborderons les politiques strictes de gestion du système et la méthodologie de projet appliquée.
+\chapter{État de l'art}
+\section{Concepts fondamentaux}
+Le commerce électronique moderne nécessite une séparation claire entre le frontend (l'interface utilisateur) et le backend (la logique métier et la base de données). L'utilisation d'architectures Headless permet une plus grande flexibilité.
+
+Le commerce électronique moderne s'éloigne progressivement des architectures monolithiques (où le frontend et le backend sont étroitement liés) pour se tourner vers des architectures \textbf{Headless} ou \textbf{Composables}. Dans ce modèle, l'interface utilisateur est totalement découplée du moteur de commerce. La communication s'effectue exclusivement via des API (REST ou GraphQL). Cela permet aux développeurs frontend d'utiliser les technologies web les plus récentes (telles que React, Vue ou Svelte) sans être contraints par le langage du backend (souvent Java, PHP ou C\#).
+\section{Analyse des solutions existantes}
+Les solutions traditionnelles comme WooCommerce ou Shopify offrent des fonctionnalités complètes mais manquent parfois de flexibilité pour s'intégrer à des ERP sur-mesure complexes intégrant des modules de comptabilité avancés.
+
+Plusieurs CMS et plateformes SaaS (Software as a Service) dominent le marché, notamment Shopify, Magento ou WooCommerce. 
+\begin{itemize}
+    \item \textbf{Avantages} : Ils offrent des solutions "clés en main" avec de nombreux plugins.
+    \item \textbf{Inconvénients} : Dès lors qu'une entreprise dispose déjà de son propre ERP ultra-spécifique gérant sa comptabilité et sa facturation, la synchronisation avec ces plateformes tierces devient un cauchemar technique. Les coûts de migration et de maintenance des connecteurs explosent.
+\end{itemize}
+\section{Positionnement de notre plateforme}
+Notre solution se positionne comme un frontend sur-mesure (React/Next.js) agissant comme un proxy intelligent vers le Kernel-Core de YowYob, permettant de gérer les spécificités multi-tenant (ex: Boulangerie Délices) tout en assurant des performances optimales.
+\section{Positionnement du projet}
+Le système \textbf{Kernel-Core} est un ERP complet qui ne fournit pas nativement de boutique en ligne élégante. Notre projet KSM E-Shop vient combler ce vide. En se positionnant comme une "vitrine" (frontend) développée de zéro avec Next.js, nous tirons parti de la puissance de calcul et de gestion du backend, tout en offrant aux utilisateurs finaux une navigation instantanée et un design sur-mesure que les solutions pré-emballées ne pourraient fournir.
+\chapter{Analyse des besoins et étude de faisabilité}
+\section{Analyse des parties prenantes}
+Les parties prenantes incluent les administrateurs du système YowYob, les gérants de boutiques (locataires/tenants), et les clients finaux accédant au catalogue de produits.
+
+Les acteurs interagissant avec le système sont multiples :
+\begin{itemize}
+    \item \textbf{Les administrateurs système (DevOps)} : Ils maintiennent l'infrastructure et exigent que le frontend n'impacte pas la sécurité du backend.
+    \item \textbf{Les marchands (Locataires/Tenants)} : Ils ont besoin d'un espace d'administration rapide pour mettre à jour leurs prix, leurs stocks, et créer des fiches produits enrichies.
+    \item \textbf{Les clients finaux} : Ils attendent un temps de chargement des pages inférieur à 2 secondes et une expérience d'achat sans friction, sur mobile comme sur ordinateur.
+\end{itemize}
+\section{Étude des besoins utilisateurs}
+Les gérants nécessitent un tableau de bord pour administrer leur catalogue (produits, variantes, prix, catégories). Le système doit masquer la complexité de l'ERP sous-jacent.
+
+Suite à des ateliers de conception, les exigences suivantes ont été formalisées :
+\begin{enumerate}
+    \item \textbf{Transparence multi-tenant} : L'URL de la boutique doit déterminer instantanément quel catalogue afficher (ex: \texttt{/boulangerie-delices/}).
+    \item \textbf{Gestion des déclinaisons} : Le système doit pouvoir gérer des variantes complexes (tailles, couleurs, poids) associées à des codes-barres et des tarifs spécifiques (FCFA).
+    \item \textbf{Résilience} : Si le backend subit une latence, le frontend doit pouvoir afficher un état de chargement élégant plutôt que de planter ("Graceful degradation").
+\end{enumerate}
+\section{Étude de faisabilité}
+Techniquement, Next.js est parfaitement adapté grâce à ses API Routes qui permettent de contourner les problèmes de CORS en relayant les requêtes vers le backend YowYob tout en centralisant la gestion de l'authentification.
+
+L'utilisation de \textbf{Next.js 15} a été validée. Ses API Routes permettent de créer un "Backend-for-Frontend" (BFF) qui interceptera les appels du navigateur, y injectera les tokens d'authentification sécurisés, puis interrogera le Kernel-Core. Cette méthode supprime les blocages liés au CORS et protège les identifiants d'API d'une exposition publique.
+\chapter{État des lieux et analyse de l'existant}
+\section{Présentation générale de l'infrastructure Kernel-Core}
+Le backend actuel (Kernel-Core) est une API RESTful robuste en Spring Boot exposant des services d'ERP complets (facturation, comptabilité, catalogue). 
+
+\section{Présentation générale de l'infrastructure globale}
+L'infrastructure globale héberge les services de YowYob. C'est un environnement privé hautement sécurisé. 
+
+\section{Architecture existante}
+L'architecture repose sur des microservices avec une documentation Swagger exhaustive. Les endpoints exigent une authentification forte (JWT ou clés API).
+
+Au cœur du système se trouve le \textbf{Kernel-Core}. Développé en Java Spring Boot, ce backend repose sur une architecture microservices orientée domaine (DDD). Il expose des contrats d'interface documentés via OpenAPI (Swagger). Ses modules incluent :
+\begin{itemize}
+    \item Le module \texttt{Catalog} (Produits, Catégories, Variantes).
+    \item Le module \texttt{Accounting} (Journaux, Brouillards comptables, Exercices).
+    \item Le module \texttt{Invoicing} (Facturation et encaissement).
+\end{itemize}
+\section{Limitations observées}
+Le frontend ne peut pas communiquer directement avec le backend depuis le navigateur client pour des raisons de sécurité (CORS, exposition des tokens d'accès) et de flexibilité d'architecture.
+
+Lors de l'audit de l'existant, plusieurs freins ont été mis en évidence :
+\begin{itemize}
+    \item \textbf{Authentification stricte} : L'API rejette toute requête web publique (\texttt{Not Authenticated}) et nécessite un token JWT ou des headers \texttt{X-Api-Key}.
+    \item \textbf{Erreurs CORS} : L'API n'autorise pas les requêtes directes provenant de domaines non listés.
+    \item \textbf{Structure des données} : Les objets JSON renvoyés par l'ERP sont lourds et contiennent de nombreux champs comptables inutiles pour l'affichage en vitrine.
+\end{itemize}
+\section{Besoins d'évolution identifiés}
+Il est nécessaire d'introduire une couche middleware (Proxy) au sein du serveur Next.js pour encapsuler les appels réseau et sécuriser les échanges avec le Kernel-Core.
+
+Pour surmonter ces obstacles, l'architecture doit évoluer en introduisant une couche intermédiaire de "façade". Ce proxy aura pour rôle de :
+1. Centraliser l'authentification M2M (Machine-to-Machine).
+2. Filtrer, aplatir et formater les objets JSON complexes en structures légères consommables par l'interface utilisateur.
+\chapter{Mise à jour de l'analyse et de la conception du système}
+\section{Diagramme de contexte}
+Le système interagit avec deux acteurs principaux : l'utilisateur (navigateur) et le backend ERP (YowYob API). Le frontend Next.js se situe au milieu comme passerelle.
+
+Le diagramme de contexte met en scène trois entités. L'application Web Frontend interagit avec le "Next.js API Gateway". Ce dernier agit comme unique point d'entrée vers le sous-système complexe "Kernel-Core", protégeant ainsi l'ERP des accès directs extérieurs.
+
+\begin{figure}[h!]
+    \centering
+    \vspace{6cm} % Espace pour insérer l'image du diagramme de contexte
+    % \includegraphics[width=0.8\textwidth]{diagramme_contexte.png}
+    \caption{Diagramme de contexte}
+    \label{fig:contexte}
+\end{figure}
+
+\section{Diagramme de packages}
+L'application est divisée en plusieurs modules : Composants UI (Tailwind), Stores d'état (Zustand), App Router (Pages/Layouts), et Lib (Clients API).
+
+Le code source est structuré selon une approche modulaire stricte :
+\begin{itemize}
+    \item \texttt{src/app} : Contient les routes Next.js, réparties entre les vues clients (boutique) et les vues d'administration (\texttt{/admin/[tenantId]}).
+    \item \texttt{src/components} : Bibliothèque de composants réutilisables basés sur TailwindCSS et Radix UI.
+    \item \texttt{src/store} : Fichiers Zustand isolant l'état métier (Products, Inventory, Orders).
+    \item \texttt{src/lib/api-client.ts} : Cœur de la communication réseau, standardisant les appels et la gestion des erreurs.
+\end{itemize}
+
+\begin{figure}[h!]
+    \centering
+    \vspace{6cm} % Espace pour insérer l'image du diagramme de packages
+    % \includegraphics[width=0.8\textwidth]{diagramme_packages.png}
+    \caption{Diagramme de packages}
+    \label{fig:packages}
+\end{figure}
+
+\section{Diagramme de cas d'utilisation}
+Cas d'utilisation principaux : Gérer le catalogue (Créer un produit, ajouter une variante), Consulter les produits, Gérer les commandes, Naviguer dans les arborescences de catégories.
+
+Parmi les cas majeurs, nous retrouvons :
+\begin{itemize}
+    \item \textbf{Administrateur} : "Créer une arborescence de catégories", "Définir un prix versionné dans le temps", "Ajouter un lot de traçabilité".
+    \item \textbf{Système (Proxy)} : "Transmettre la requête sécurisée", "Mapper la réponse JSON".
+\end{itemize}
+
+\begin{figure}[h!]
+    \centering
+    \vspace{6cm} % Espace pour insérer l'image du diagramme de cas d'utilisation
+    % \includegraphics[width=0.8\textwidth]{diagramme_cas_utilisation.png}
+    \caption{Diagramme de cas d'utilisation}
+    \label{fig:usecase}
+\end{figure}
+
+\section{Diagramme de classes conceptuel}
+Concepts métiers : Product, Category, Variant, Price, Organization. Un Produit possède plusieurs Variantes, qui ont chacune des Prix historiques.
+
+Au niveau conceptuel, le domaine métier e-commerce est modélisé par l'entité \texttt{Product} qui est agrégée au sein d'une \texttt{Category}. Le \texttt{Product} se décline en une à plusieurs \texttt{Variant} (SKUs). Chaque \texttt{Variant} possède un \texttt{Price} actif selon la date, et potentiellement un \texttt{Batch} (Lot) pour la gestion d'expiration et de traçabilité. Tout est rattaché à une \texttt{Organization} (Tenant).
+
+\begin{figure}[h!]
+    \centering
+    \vspace{6cm} % Espace pour insérer l'image du diagramme de classes conceptuel
+    % \includegraphics[width=0.8\textwidth]{diagramme_classes_conceptuel.png}
+    \caption{Diagramme de classes conceptuel}
+    \label{fig:classes_conceptuel}
+\end{figure}
+
+\section{Diagramme de classes technique}
+Implémentation logicielle des interfaces TypeScript correspondantes aux schémas JSON de l'API fournis par l'interface Swagger.
+
+Techniquement, ces classes sont traduites en interfaces TypeScript strictes, telles que \texttt{interface Product \{ id: string; tenantId: string; ... \}}. Ces types TypeScript assurent une sécurité à la compilation et correspondent aux schémas exposés par le Swagger du backend.
+
+\begin{figure}[h!]
+    \centering
+    \vspace{6cm} % Espace pour insérer l'image du diagramme de classes technique
+    % \includegraphics[width=0.8\textwidth]{diagramme_classes_technique.png}
+    \caption{Diagramme de classes technique}
+    \label{fig:classes_technique}
+\end{figure}
+
+\section{Diagrammes de séquence système}
+Séquence de création d'un produit : L'utilisateur soumet le formulaire -> Le Store Zustand met à jour l'état de chargement -> Appel de la route API Next.js -> Requête HTTP POST vers l'ERP -> Retour du succès -> Mise à jour UI.
+
+Un exemple critique est la séquence de récupération du catalogue :
+1. Le client navigue sur la page des produits.
+2. Le composant \texttt{StoreInitializer} monte et déclenche \texttt{fetchProducts('o1')}.
+3. Le store Zustand envoie un appel \texttt{GET /api/products} au serveur Node.js Next.
+4. L'API Route Node.js injecte la clé API dans les Headers et fait la vraie requête HTTPS vers \texttt{kernel-core.yowyob.com}.
+5. L'ERP renvoie les données.
+6. Le store Zustand parse le JSON, met à jour l'état, ce qui force le re-rendu de l'interface utilisateur.
+
+\begin{figure}[h!]
+    \centering
+    \vspace{6cm} % Espace pour insérer l'image du diagramme de séquence
+    % \includegraphics[width=0.8\textwidth]{diagramme_sequence.png}
+    \caption{Diagramme de séquence système}
+    \label{fig:sequence}
+\end{figure}
+
+\section{Diagramme de temps des machines virtuelles (Cycle de vie)}
+Hydratation des stores au montage du composant via le \texttt{StoreInitializer}, garantissant un état synchronisé avec le serveur (API Next) dès l'initialisation du rendu.
+
+\section{Diagramme de temps des machines virtuelles}
+Ce diagramme illustre le temps d'exécution. Lors du démarrage des environnements serveurs, le backend prend plusieurs dizaines de secondes pour monter (Spring Boot). Le frontend Next.js, étant un serveur Node.js léger, démarre quasi-instantanément. Lors du rendu côté serveur (SSR), le frontend doit s'assurer que le backend est joignable avant de générer la page HTML finale.
+
+\begin{figure}[h!]
+    \centering
+    \vspace{6cm} % Espace pour insérer l'image du diagramme de temps
+    % \includegraphics[width=0.8\textwidth]{diagramme_temps.png}
+    \caption{Diagramme de temps des processus}
+    \label{fig:temps}
+\end{figure}
+
+\section{Architecture globale du système}
+Architecture en 3 couches : Interface (React/Next), Proxy/API Routes (Next.js Node.js), Backend Externe (Spring Boot/Base de données).
+
+L'architecture est dite en trois tiers décomposés :
+\begin{itemize}
+    \item \textbf{Tier 1 (Présentation)} : Navigateur web (React.js, état local Zustand).
+    \item \textbf{Tier 2 (Logique Applicative et Proxy)} : Serveur Next.js (Node.js) gérant le SSR et la sécurité.
+    \item \textbf{Tier 3 (Logique Métier et Données)} : ERP Kernel-Core (Java, Base de données relationnelle).
+\end{itemize}
+
+\begin{figure}[h!]
+    \centering
+    \vspace{6cm} % Espace pour insérer l'image de l'architecture globale
+    % \includegraphics[width=0.8\textwidth]{architecture_globale.png}
+    \caption{Architecture globale du système}
+    \label{fig:architecture}
+\end{figure}
+
+\section{Choix technologiques justifiés}
+\begin{itemize}
+    \item \textbf{Next.js 15} : Pour le rendu hybride (SSR/CSR) et le routeur API intégré.
+    \item \textbf{TailwindCSS} : Pour un développement UI rapide, réactif et moderne.
+    \item \textbf{Zustand} : Pour une gestion d'état local légère et découplée de React Context.
+    \item \textbf{Next.js 15} : Son App Router et le support du rendu hybride (Server Components) sont idéaux pour optimiser le SEO (référencement) du catalogue tout en gardant des dashboards d'administration dynamiques ("use client").
+    \item \textbf{Zustand} : Contrairement à Redux qui est lourd et verbeux, Zustand permet de connecter directement nos requêtes API à des variables globales ultra-performantes, sans surcharger l'arbre des composants React.
+    \item \textbf{TailwindCSS} : Son système d'utilitaires atomiques garantit un design "pixel-perfect" cohérent, facilitant grandement la mise en place d'une identité visuelle unique pour chaque "tenant".
+\end{itemize}
+\chapter{Politique de gestion de la plateforme}
+\section{Politique de gestion des comptes}
+Le système supporte un modèle multi-locataire. Chaque compte correspond à une "Organization" ou un "Tenant" unique.
+
+Le principe de ségrégation des données est absolu. Chaque locataire se voit attribuer un \texttt{tenantId} et un \texttt{organizationId} unique (ex: \texttt{o1}). Le frontend intègre cet identifiant dans chaque requête. Si une tentative d'accès à des données d'une autre organisation est détectée, le Kernel-Core la rejette immédiatement via un contrôle d'autorisation au niveau du token.
+\section{Politique d'utilisation des ressources}
+Les requêtes API sont optimisées via des appels en cache côté serveur pour éviter de surcharger le backend ERP lors des pics de charge.
+
+Pour économiser la bande passante et les ressources serveur de l'ERP, l'API Gateway Next.js peut implémenter des mécanismes de cache HTTP. Par exemple, l'arborescence des catégories, qui change rarement, peut être mise en cache en mémoire pendant 15 minutes.
+\section{Politique réseau et isolation}
+Isolation logique des données par locataire (\texttt{tenantId}) vérifiée au niveau des layouts et middlewares Next.js.
+
+Sur le réseau privé, le Kernel-Core est positionné en retrait. Seul le serveur Next.js dispose des adresses IP autorisées (whitelisted) pour communiquer avec l'API métier, rendant le backend invisible depuis l'Internet public.
+\section{Politique de sécurité}
+Aucune clé secrète n'est exposée sur le frontend. Les tokens API sont conservés uniquement côté serveur dans le fichier \texttt{.env.local}.
+
+\begin{itemize}
+    \item \textbf{Gestion des Secrets} : Toutes les variables d'environnement critiques (\texttt{BACKEND\_URL}, \texttt{API\_KEY}) sont inscrites dans le fichier \texttt{.env.local} côté serveur et ne sont jamais préfixées par \texttt{NEXT\_PUBLIC\_}.
+    \item \textbf{Désinfection (Sanitization)} : Bien que gérée majoritairement par le backend, la couche Next.js s'assure qu'aucun script malveillant ne soit injecté dans les requêtes de recherche.
+\end{itemize}
+\section{Sanctions graduées}
+Des mécanismes de limitation de taux (Rate Limiting) peuvent être implémentés sur les API Routes pour prévenir les abus liés aux requêtes asynchrones répétitives.
+
+Afin de protéger la plateforme contre les attaques par déni de service (DDoS) ou le scraping agressif du catalogue, des middlewares analysent le volume des requêtes. En cas de dépassement d'un seuil, une pénalité de limitation (Rate Limit 429) est appliquée, suivie d'un blocage temporaire d'IP si l'abus persiste.
+\chapter{Planification et gestion de projet}
+\section{Tâches atomiques simplifiées}
+Configuration du dépôt, Création des maquettes, Intégration du proxy API, Mapping des données Zustand, Vérifications de build et nettoyage du stockage.
+
+La réalisation de ce projet complexe a été divisée en tâches hautement spécifiques :
+\begin{itemize}
+    \item Initialisation du dépôt Git et de l'environnement de développement (Next.js, TypeScript).
+    \item Développement des composants UI "Dumb" (composants d'affichage sans logique).
+    \item Configuration des clients API réseau (\texttt{backendFetch}) avec intercepteurs d'erreurs.
+    \item Implémentation du système d'hydratation (\texttt{StoreInitializer}) liant le backend au Zustand.
+    \item Résolution des problématiques d'infrastructure (Gestion de l'espace disque, nettoyage du cache \texttt{.next}).
+\end{itemize}
+\section{Découpage en phases}
+Le projet suit une approche itérative et incrémentale :
+\begin{enumerate}
+    \item Phase 1 : Scaffolding de l'UI et utilisation de mocks.
+    \item Phase 2 : Développement du client API et des routes backend proxy.
+    \item Phase 3 : Branchement final, gestion du cache et déploiement du serveur local.
+    \item \textbf{Phase 1 (Scaffolding et Mocks)} : Construction de l'interface avec de fausses données (mock-data) pour valider l'expérience utilisateur et le design.
+    \item \textbf{Phase 2 (Câblage Proxy)} : Création des routes API intermédiaires et test de la connexion de base avec Kernel-Core.
+    \item \textbf{Phase 3 (Branchement Final et Recette)} : Remplacement des données fictives par les appels réels. Traitement des erreurs asynchrones et validation des cycles d'ajout/suppression de produits.
+\end{enumerate}
+\section{Organisation de l'équipe}
+Développement itératif piloté par les besoins utilisateurs en méthodologie agile, avec revues rapides sur les composants de l'interface d'administration.
+
+L'équipe adopte la méthodologie Agile (Scrum). Les cycles de développement (sprints) sont courts pour s'adapter rapidement aux potentiels changements structurels de l'API. Des points de synchronisation fréquents ont lieu entre l'équipe développant le backend YowYob et l'équipe frontend KSM pour garantir que les contrats d'API (Swagger) sont parfaitement alignés.
+\chapter*{CONCLUSION}
+\addcontentsline{toc}{chapter}{CONCLUSION}
+Ce projet a permis la mise en place d'une interface frontend performante et sécurisée connectée au backend YowYob. L'architecture choisie garantit une évolutivité à long terme, capable de supporter de multiples commerçants grâce au design multi-tenant. Les défis d'intégration, notamment liés à la sécurité et à l'hydratation des données, ont été résolus via l'utilisation intelligente des API Routes de Next.js.
+\onehalfspacing
+
+Le projet KSM E-Shop démontre la pertinence et l'efficacité d'une architecture Headless pour des applications d'entreprise modernes. En interfaçant habilement le framework de pointe Next.js avec le solide ERP Kernel-Core, nous avons créé une plateforme e-commerce multi-locataire à la fois esthétique, performante et inébranlable.
+
+Les défis techniques, allant de la gestion complexe du state management via Zustand à la mise en place de proxys sécurisés pour contourner les verrous CORS et d'authentification de l'ERP, ont tous été franchis avec succès. L'outil est désormais prêt à accueillir un grand volume de catalogues et de marchands, tout en offrant aux développeurs un code source clair, maintenable et aligné avec les meilleures pratiques de l'industrie du logiciel.
+\chapter*{Références bibliographiques}
+\addcontentsline{toc}{chapter}{Références bibliographiques}
+\begin{itemize}
+    \item Documentation officielle de Next.js : \url{https://nextjs.org/docs}
+    \item API Reference Swagger (YowYob) : \url{https://kernel-core.yowyob.com/swagger-ui/index.html}
+    \item Documentation Zustand : \url{https://zustand-demo.pmnd.rs/}
+    \item Spécifications API RESTful et Swagger OpenAPI : \url{https://swagger.io/specification/}
+    \item Tailwind CSS Framework : \url{https://tailwindcss.com/docs}
+\end{itemize}
+\end{document}

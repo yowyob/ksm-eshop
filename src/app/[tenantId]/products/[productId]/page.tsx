@@ -50,8 +50,8 @@ export default function ProductDetailPage() {
   const currentPriceObj = getCurrentPrice(selectedVariant.id);
   const price = currentPriceObj ? currentPriceObj.amount : 0;
 
-  // Stock computed reactively
-  const stock = getVariantStock(selectedVariant.id);
+  // Utilisation directe du stock défini sur le produit
+  const stock = product.stock || 0;
 
   const attributes = getVariantAttributes(selectedVariant.id);
   const attributeSuffix = attributes.length > 0 

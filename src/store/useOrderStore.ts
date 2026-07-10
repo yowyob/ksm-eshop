@@ -38,22 +38,34 @@ export const useOrderStore = create<OrderState>()(
       fetchOrders: async (organizationId = 'o1') => {
         set({ isLoading: true, error: null });
         try {
-          const res = await fetch(`/api/orders?organizationId=${organizationId}`).then(r => r.json());
-          if (res.success && Array.isArray(res.data)) {
-            const backendOrders = res.data.map((o: any) => ({
-              id: o.documentNumber || o.orderNumber || o.id,
-              customerName: o.counterparty?.name || o.customerThirdPartyId || 'Client',
-              customerId: o.counterparty?.id || o.customerThirdPartyId,
-              total: o.totalAmount || o.subtotalAmount || 0,
-              status: o.status?.toLowerCase() || 'pending',
-              date: new Date(o.createdAt || Date.now()).toLocaleDateString('fr-FR', {
-                hour: '2-digit',
-                minute: '2-digit',
-              }),
-              tenantId: 't1', // fallback
-              items: o.lines || [],
-            }));
-            set({ orders: backendOrders, isLoading: false });
+          const res = await fetch(`/api/bon-commande?organizationId=${organizationId}`).then(r => r.json());
+          if (res.success || res.ok) {
+            let rawData = res.data || res;
+            if (rawData.content && Array.isArray(rawData.content)) {
+              rawData = rawData.content;
+            } else if (rawData.data && Array.isArray(rawData.data)) {
+              rawData = rawData.data;
+            }
+            
+            if (Array.isArray(rawData)) {
+              const backendOrders = rawData.map((o: any) => ({
+                id: o.documentNumber || o.orderNumber || o.id,
+                customerName: o.counterparty?.name || o.customerThirdPartyId || o.counterpartyThirdPartyId || o.customerName || 'Client',
+                customerId: o.counterparty?.id || o.customerThirdPartyId || o.counterpartyThirdPartyId || o.customerId,
+                total: o.totalAmount || o.subtotalAmount || o.total || 0,
+                status: o.status?.toLowerCase() || 'pending',
+                date: o.createdAt ? new Date(o.createdAt).toLocaleDateString('fr-FR', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                }) : (o.date || new Date().toLocaleDateString('fr-FR')),
+                tenantId: o.organizationId || o.tenantId || 't1', 
+                items: o.lines || o.items || [],
+              }));
+              
+              set({ orders: backendOrders, isLoading: false });
+            } else {
+              set({ error: 'Format de données invalide', isLoading: false });
+            }
           } else {
             set({ error: res.message || 'Failed to fetch orders', isLoading: false });
           }
@@ -67,18 +79,24 @@ export const useOrderStore = create<OrderState>()(
         set((state) => ({ orders: [order, ...state.orders] }));
 
         const reqBody = {
-          customerThirdPartyId: order.customerId || order.customerName, // Use UUID if available
+          organizationId: order.tenantId,
+          counterpartyThirdPartyId: order.customerId || order.customerName, // Use UUID if available
+          customerName: order.customerName,
+          totalAmount: order.total,
           orderNumber: order.id,
           currency: 'FCFA',
           lines: order.items.map(item => ({
-            productId: item.productId,
+            productId: item.productId || item.variantId || item.id,
+            name: item.name,
+            image: item.image,
             quantity: item.quantity,
             unitPrice: item.price,
+            taxRate: 0
           })),
         };
 
         try {
-          const res = await fetch('/api/orders', {
+          const res = await fetch('/api/bon-commande', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(reqBody),

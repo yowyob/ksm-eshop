@@ -95,6 +95,7 @@ export default function AdminProductsPage() {
         currency: 'FCFA',
         familyCode: 'STANDARD',
         variantLabel: 'Standard',
+        quantity: parseInt(newProduct.quantity, 10) || 0,
         sku: `SKU-${Date.now()}`,
         status: 'ACTIVE'
       };
@@ -161,6 +162,7 @@ export default function AdminProductsPage() {
         currency: 'FCFA',
         familyCode: 'STANDARD',
         variantLabel: 'Standard',
+        quantity: parseInt(editProduct.quantity, 10) || 0,
         sku: editProduct.name.substring(0, 5).toUpperCase() + '-' + Date.now().toString().substring(7)
       };
 
@@ -439,13 +441,17 @@ export default function AdminProductsPage() {
           <div className="grid grid-cols-1 gap-4">
             {filteredProducts.map((p) => {
               // Try to find the image URL from various potential fields
-              const imageSource = p.photo || p.imageUrl || p.image || p.picture || p.logoUri || 'https://images.unsplash.com/photo-1549931319-a545dcf3bc73?w=500&q=80';
+              const imageSource = p.photo || p.imageUrl || p.image || p.picture || p.logoUri || null;
               
               return (
                 <Card key={p.id} className="border-2 border-zinc-200 hover:border-blue-600/30 transition-colors bg-white overflow-hidden rounded-2xl group">
                   <div className="flex flex-col sm:flex-row items-start sm:items-center p-4 gap-4">
-                    <div className="h-20 w-20 bg-zinc-100 rounded-xl overflow-hidden shrink-0 border border-zinc-200">
-                      <img src={imageSource} className="h-full w-full object-cover" alt={p.name} />
+                    <div className="h-20 w-20 bg-zinc-100 rounded-xl overflow-hidden shrink-0 border border-zinc-200 flex items-center justify-center">
+                      {imageSource ? (
+                        <img src={imageSource} className="h-full w-full object-cover" alt={p.name} />
+                      ) : (
+                        <Package className="h-8 w-8 text-zinc-300" />
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="font-black text-lg text-zinc-900 truncate">{p.name}</h3>

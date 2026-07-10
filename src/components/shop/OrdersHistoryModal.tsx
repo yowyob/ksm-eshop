@@ -24,8 +24,7 @@ export default function OrdersHistoryModal({ isOpen, onClose, userName, userEmai
       ((customerId && order.customerId === customerId) ||
        order.customerName.toLowerCase().includes(userName.toLowerCase()) || 
        order.customerName.toLowerCase() === 'client ksm' ||
-       order.customerName === '') &&
-      (order.tenantId === tenantId || order.tenantId === 't1') // match tenant
+       order.customerName === '')
   );
 
   const getStatusBadge = (status: string) => {

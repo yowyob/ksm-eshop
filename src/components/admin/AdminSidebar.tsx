@@ -45,17 +45,20 @@ export default function AdminSidebar({ tenant }: AdminSidebarProps) {
 
  return (
  <aside className="w-64 border-r bg-white flex flex-col shadow-sm">
-   <div className="p-6">
-     <div className="flex items-center gap-2 px-2">
-       <div className="h-8 w-8 rounded-md flex items-center justify-center text-white font-bold" style={{ backgroundColor: tenant.themeColor }}>
-         {tenant.name[0]}
-       </div>
-       <span className="font-bold text-lg truncate">KSM eShop</span>
-     </div>
-     <p className="mt-2 px-2 text-[10px] font-bold uppercase tracking-widest text-zinc-400">
-       Gestion Boutique
-     </p>
-   </div>
+    <div className="p-6">
+      <div className="flex items-center gap-3 px-2">
+        <div className="h-10 w-10 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-sm" style={{ backgroundColor: tenant.themeColor }}>
+          {tenant.name[0]}
+        </div>
+        <div className="flex flex-col overflow-hidden">
+          <span className="font-black text-lg leading-tight uppercase italic text-zinc-900">KSM admin</span>
+          <span className="text-blue-600 text-[10px] font-black uppercase tracking-widest truncate">{tenant.name}</span>
+        </div>
+      </div>
+      <p className="mt-4 px-2 text-[10px] font-bold uppercase tracking-widest text-zinc-400">
+        Gestion Boutique
+      </p>
+    </div>
 
  <nav className="flex-1 px-4 space-y-1">
  {navItems.map((item) => (

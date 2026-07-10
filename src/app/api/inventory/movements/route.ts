@@ -4,7 +4,7 @@ import { backendFetch } from '@/lib/api-client';
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const organizationId = searchParams.get('organizationId') || process.env.DEFAULT_ORGANIZATION_ID || 'o1';
-  const agencyId = searchParams.get('agencyId') || undefined;
+  const agencyId = searchParams.get('agencyId') || process.env.DEFAULT_AGENCY_ID || 'wh1_2';
   const productId = searchParams.get('productId') || undefined;
 
   const mockMovements = [
@@ -54,6 +54,7 @@ export async function GET(request: NextRequest) {
   });
 
   if (!result.success) {
+    console.error("Movements fetch failed: ", result);
     return Response.json({
       success: true,
       data: mockMovements

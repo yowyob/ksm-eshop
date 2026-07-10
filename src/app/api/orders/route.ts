@@ -1,21 +1,20 @@
 import { NextRequest } from 'next/server';
 import { backendFetch } from '@/lib/api-client';
+import { getLocalOrders } from '@/lib/local-db';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const organizationId = searchParams.get('organizationId') || process.env.DEFAULT_ORGANIZATION_ID || 'o1';
-  const page = searchParams.get('page') || undefined;
-  const size = searchParams.get('size') || undefined;
 
-  const result = await backendFetch('/api/sales/orders', {
-    method: 'GET',
-    params: {
-      organizationId,
-      page,
-      size,
-    },
+  // The user explicitly requested that we strictly use the local database (.data/orders.json) 
+  // for orders, instead of trying to fetch from the kernel, due to POST/permissions issues.
+  const localOrders = getLocalOrders(organizationId || undefined);
+  
+  return Response.json({ 
+    success: true, 
+    data: localOrders,
+    totalElements: localOrders.length
   });
-  return Response.json(result);
 }
 
 export async function POST(request: NextRequest) {

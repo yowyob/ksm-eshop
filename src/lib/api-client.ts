@@ -108,7 +108,9 @@ export async function backendFetch<T = any>(
       }
 
       if (!response.ok) {
-        console.error(`[API Client] Error: ${response.status} ${response.statusText}`, responseData);
+        if (response.status !== 401) {
+          console.error(`[API Client] Error: ${response.status} ${response.statusText}`, responseData);
+        }
         return {
           success: false,
           message: responseData.message || response.statusText || 'Une erreur est survenue lors de la communication avec le serveur.',
