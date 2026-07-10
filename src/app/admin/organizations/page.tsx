@@ -88,10 +88,6 @@ export default function OrganizationsPage() {
             <h2 className="text-4xl font-black uppercase tracking-tighter text-zinc-900 mb-2">Organisations</h2>
             <p className="text-zinc-500 font-medium">Gérez l'ensemble des boutiques et locataires de la plateforme KSM.</p>
           </div>
-          <Button className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest h-12 px-6 shadow-xl shadow-blue-600/20 rounded-xl transition-all hover:scale-105">
-            <Plus className="h-5 w-5 mr-2" />
-            Nouvelle Organisation
-          </Button>
         </div>
 
         {error && (

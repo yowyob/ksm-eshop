@@ -10,8 +10,8 @@ import { CheckCircle2, Wallet, ArrowLeft, Printer, Download, ShieldCheck } from 
 import { useOrderStore, Order } from '@/store/useOrderStore';
 import { useInventoryStore } from '@/store/useInventoryStore';
 import { TENANTS } from '@/lib/mock-data';
-
 import { useCustomerAuthStore } from '@/store/useCustomerAuthStore';
+import { useProductStore } from '@/store/useProductStore';
 
 export default function CheckoutPage() {
   const { tenantId } = useParams();
@@ -49,18 +49,18 @@ export default function CheckoutPage() {
     const randomId = Math.floor(100000 + Math.random() * 900000);
     const orderId = `KSM-${randomId}`;
 
-    // Dispatch Order to Inventory (calls inventory-core logic)
-    const stockAvailable = await dispatchSalesOrder(
+    // Call dispatchSalesOrder to log outbound movements
+    await dispatchSalesOrder(
       tenant?.id || 't1',
       orderId,
       items.map(item => ({ variantId: item.variantId, quantity: item.quantity }))
     );
 
-    if (!stockAvailable) {
-      alert("Erreur: Stock physique insuffisant pour finaliser la commande. Veuillez vérifier la disponibilité.");
-      setIsProcessing(false);
-      return;
-    }
+    // Optimistically decrease stock in useProductStore
+    const { decreaseProductStock } = useProductStore.getState();
+    items.forEach(item => {
+      decreaseProductStock(item.productId || item.variantId.replace('v-', ''), item.quantity);
+    });
     
     const newOrder: Order = {
       id: orderId,

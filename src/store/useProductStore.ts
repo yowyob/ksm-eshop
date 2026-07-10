@@ -58,6 +58,7 @@ interface ProductState {
   ) => Promise<boolean>;
   updateProduct: (product: Product) => Promise<boolean>;
   deleteProduct: (productId: string) => Promise<boolean>;
+  decreaseProductStock: (productId: string, quantity: number) => void;
 
   addVariant: (variant: Variant, attributes: VariantAttribute[], price: Price) => Promise<boolean>;
   updateVariant: (variant: Variant) => Promise<boolean>;
@@ -105,6 +106,7 @@ export const useProductStore = create<ProductState>()(
               createdAt: p.createdAt || new Date().toISOString(),
               isFeatured: p.isFeatured || false,
               imageUrl: p.photo || p.imageUrl || 'https://images.unsplash.com/photo-1549931319-a545dcf3bc73?w=500&q=80',
+              stock: p.quantity || 0,
             }));
 
             // Also load price and variants from product data if nested
@@ -346,6 +348,14 @@ export const useProductStore = create<ProductState>()(
           console.error('Error deleting product:', err);
           return false;
         }
+      },
+
+      decreaseProductStock: (productId, quantity) => {
+        set((state) => ({
+          products: state.products.map(p => 
+            p.id === productId ? { ...p, stock: Math.max(0, (p.stock || 0) - quantity) } : p
+          )
+        }));
       },
 
       addVariant: async (variant, attributes, price) => {
