@@ -1,0 +1,295 @@
+diff --git a/src/app/admin/[tenantId]/page.tsx b/src/app/admin/[tenantId]/page.tsx
+index aa23fe9..9a1449c 100644
+--- a/src/app/admin/[tenantId]/page.tsx
++++ b/src/app/admin/[tenantId]/page.tsx
+@@ -1,154 +1,158 @@
+ 'use client';
+ 
+-import { TENANTS } from '@/lib/mock-data';
++import { useEffect, useState } from 'react';
++import { useParams, useRouter } from 'next/navigation';
+ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+-import { 
+-  TrendingUp, 
+-  Package, 
+-  ShoppingCart, 
+-  AlertTriangle,
+-  ArrowUpRight,
+-  ArrowDownRight,
+-  ArrowLeft,
+-  RefreshCw,
+-  Bell,
+-  ShieldCheck,
+-  CheckCircle2
+-} from 'lucide-react';
+-import { formatPrice } from '@/lib/utils';
++import { Package, Users, ShoppingCart, Loader2, ArrowRight } from 'lucide-react';
+ import Link from 'next/link';
+-import { Button } from '@/components/ui/Button';
+-import { useParams } from 'next/navigation';
+-import { useProductStore } from '@/store/useProductStore';
+ 
+-export default function AdminHomePage() {
+-  const { tenantId } = useParams();
+-  const { products } = useProductStore();
+-  const tenant = TENANTS.find((t) => t.slug === tenantId);
++export default function AdminDashboardPage() {
++  const { tenantId } = useParams() as { tenantId: string };
++  const router = useRouter();
+ 
+-  if (!tenant) return null;
++  const [stats, setStats] = useState({
++    products: 0,
++    clients: 0,
++    orders: 0
++  });
++  const [loading, setLoading] = useState(true);
++  const [error, setError] = useState<string | null>(null);
+ 
+-  const tenantProducts = products.filter((p) => p.tenantId === tenant.id);
+-  const lowStockProducts = tenantProducts.filter((p) => p.stock > 0 && p.stock <= 5);
++  useEffect(() => {
++    async function fetchStats() {
++      setLoading(true);
++      setError(null);
++      try {
++        // Fetch Products count
++        const prodRes = await fetch(`/api/admin/products?organizationId=${tenantId}`);
++        if (prodRes.status === 401) {
++          router.push('/admin/login');
++          return;
++        }
++        const prodData = await prodRes.json();
++        let productsCount = 0;
++        if (prodData.success) {
++          const raw = prodData.data;
++          if (Array.isArray(raw)) productsCount = raw.length;
++          else if (raw?.content && Array.isArray(raw.content)) productsCount = raw.content.length;
++          else if (raw?.data && Array.isArray(raw.data)) productsCount = raw.data.length;
++        }
+ 
+-  const stats = [
+-    { label: 'Ventes du Jour', value: formatPrice(245000), icon: TrendingUp, color: 'text-green-600', trend: '+18%', trendType: 'up' },
+-    { label: 'Commandes eShop', value: '42', icon: ShoppingCart, color: 'text-blue-600', trend: '+5', trendType: 'up' },
+-    { label: 'Articles Catalogués', value: tenantProducts.length.toString(), icon: Package, color: 'text-purple-600', trend: 'Stable', trendType: 'neutral' },
+-    { label: 'Alertes Stock', value: lowStockProducts.length.toString(), icon: Bell, color: 'text-orange-600', trend: 'Suivi requis', trendType: 'neutral' },
+-  ];
++        // Fetch Clients count (simplified, just total clients or search endpoint)
++        const clientsRes = await fetch('/api/admin/clients');
++        const clientsData = await clientsRes.json();
++        let clientsCount = 0;
++        if (clientsData.success) {
++           // Si on veut les clients de l'organisation spécifique, l'API devrait filtrer.
++           // Pour l'instant on compte tout ou on met une valeur approximative basée sur la réponse
++           const raw = clientsData.data;
++           if (Array.isArray(raw)) clientsCount = raw.length;
++           else if (raw?.content && Array.isArray(raw.content)) clientsCount = raw.content.length;
++           else if (raw?.data && Array.isArray(raw.data)) clientsCount = raw.data.length;
++        }
+ 
+-  return (
+-    <div className="space-y-8">
+-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+-        <div>
+-          <div className="flex items-center gap-2 mb-1">
+-            <span className="bg-zinc-900 text-white text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest">KSM Admin</span>
+-            <div className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
+-            <span className="text-[9px] font-bold text-green-600 uppercase tracking-widest">Sync Active</span>
+-          </div>
+-          <h1 className="text-2xl font-black tracking-tight text-zinc-900 uppercase italic">Vue d&apos;ensemble</h1>
+-          <p className="text-zinc-500 font-bold uppercase text-[10px] tracking-widest">
+-            Enseigne : <span className="text-blue-600">{tenant.name}</span>
+-          </p>
+-        </div>
+-        <div className="flex gap-3">
+-          <Button size="sm" variant="outline" className="border-2 border-zinc-900 font-black uppercase text-[10px] gap-2 h-9">
+-            <RefreshCw className="h-3 w-3" /> Sync
+-          </Button>
+-        </div>
++        // Fetch Orders count
++        const ordersRes = await fetch('/api/orders');
++        const ordersData = await ordersRes.json();
++        let ordersCount = 0;
++        if (ordersData.success) {
++           const raw = ordersData.data;
++           if (Array.isArray(raw)) ordersCount = raw.length;
++           else if (raw?.content && Array.isArray(raw.content)) ordersCount = raw.content.length;
++           else if (raw?.data && Array.isArray(raw.data)) ordersCount = raw.data.length;
++        }
++
++        setStats({
++          products: productsCount,
++          clients: clientsCount,
++          orders: ordersCount
++        });
++      } catch (err: any) {
++        setError("Erreur lors de la récupération des statistiques.");
++      } finally {
++        setLoading(false);
++      }
++    }
++
++    if (tenantId) {
++      fetchStats();
++    }
++  }, [tenantId, router]);
++
++  if (loading) {
++    return (
++      <div className="flex flex-col items-center justify-center py-32 text-zinc-400">
++        <Loader2 className="h-10 w-10 animate-spin mb-4 text-blue-600" />
++        <p className="font-bold uppercase tracking-widest text-sm">Chargement du Tableau de bord...</p>
+       </div>
++    );
++  }
+ 
+-      {/* Stats Grid */}
+-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+-        {stats.map((stat) => (
+-          <Card key={stat.label} className="border-2 border-zinc-900 shadow-sm">
+-            <CardHeader className="flex flex-row items-center justify-between pb-1 border-none">
+-              <CardTitle className="text-[10px] font-black uppercase tracking-widest text-zinc-400">{stat.label}</CardTitle>
+-              <stat.icon className={stat.color + " h-4 w-4"} />
+-            </CardHeader>
+-            <CardContent>
+-              <div className="text-xl font-black italic tracking-tight text-zinc-900">{stat.value}</div>
+-              <p className="mt-1 flex items-center text-[9px] font-black uppercase tracking-widest">
+-                {stat.trendType === 'up' && <ArrowUpRight className="h-2.5 w-2.5 mr-1 text-green-600" />}
+-                <span className={stat.trendType === 'up' ? 'text-green-600' : 'text-zinc-400'}>
+-                  {stat.trend}
+-                </span>
+-                <span className="ml-1.5 text-zinc-300">Vs hier</span>
+-              </p>
+-            </CardContent>
+-          </Card>
+-        ))}
++  return (
++    <div className="max-w-6xl mx-auto space-y-8">
++      <div>
++        <h1 className="text-4xl font-black uppercase tracking-tighter text-zinc-900">Tableau de bord</h1>
++        <p className="text-zinc-500 font-medium">Vue d'ensemble de l'organisation et résumé des activités.</p>
+       </div>
+ 
+-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+-        {/* Quick Inventory View */}
+-        <Card className="lg:col-span-2 border-2 border-zinc-200">
+-          <CardHeader className="border-b bg-zinc-50/50 py-3">
+-            <CardTitle className="text-sm uppercase italic tracking-tighter font-black">État des Stocks</CardTitle>
+-          </CardHeader>
+-          <CardContent className="p-0">
+-            <div className="divide-y divide-zinc-100">
+-              {tenantProducts.slice(0, 5).map((product) => (
+-                <div key={product.id} className="flex items-center justify-between p-3 hover:bg-zinc-50 transition-all">
+-                  <div className="flex items-center gap-3">
+-                    <div className="h-10 w-10 bg-white rounded-lg border overflow-hidden shrink-0">
+-                      <img src={product.imageUrl} className="h-full w-full object-cover" alt="" />
+-                    </div>
+-                    <div>
+-                      <p className="text-xs font-black text-zinc-900 uppercase italic tracking-tight leading-none">{product.name}</p>
+-                      <p className="text-[9px] text-zinc-400 font-bold uppercase tracking-widest mt-1">Stock actuel</p>
+-                    </div>
+-                  </div>
+-                  <div className="text-right">
+-                    <span className={`text-sm font-black tracking-tight ${product.stock <= 5 ? 'text-red-600' : 'text-zinc-900'}`}>{product.stock}</span>
+-                  </div>
+-                </div>
+-              ))}
+-            </div>
+-            <div className="p-3 border-t">
+-              <Link href={`/admin/${tenant.slug}/products`}>
+-                <Button variant="ghost" className="w-full text-[10px] font-black uppercase tracking-widest h-8">
+-                  Voir tout l&apos;inventaire
+-                </Button>
+-              </Link>
++      {error && (
++        <div className="bg-red-50 text-red-600 p-4 rounded-xl font-bold">
++          {error}
++        </div>
++      )}
++
++      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
++        {/* Products Stat Card */}
++        <Card className="border-2 border-zinc-200 bg-white hover:border-blue-600 transition-colors shadow-sm rounded-3xl overflow-hidden group">
++          <CardHeader className="p-6 bg-zinc-50 border-b border-zinc-100 flex flex-row items-center justify-between group-hover:bg-blue-50/50 transition-colors">
++            <CardTitle className="text-sm font-black uppercase tracking-widest text-zinc-500 group-hover:text-blue-600 transition-colors">
++              Produits en catalogue
++            </CardTitle>
++            <div className="h-10 w-10 bg-blue-100 rounded-xl flex items-center justify-center">
++              <Package className="h-5 w-5 text-blue-600" />
+             </div>
++          </CardHeader>
++          <CardContent className="p-6">
++            <div className="text-4xl font-black text-zinc-900 mb-4">{stats.products}</div>
++            <Link href={`/admin/${tenantId}/products`} className="flex items-center text-blue-600 font-black uppercase tracking-widest text-xs hover:text-blue-700">
++              Gérer les produits <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
++            </Link>
+           </CardContent>
+         </Card>
+ 
+-        {/* Notifications / Activity */}
+-        <Card className="border-2 border-zinc-200">
+-          <CardHeader className="border-b bg-zinc-50/50 py-3">
+-            <CardTitle className="text-sm uppercase italic tracking-tighter font-black">Activité Récente</CardTitle>
+-          </CardHeader>
+-          <CardContent className="p-4 space-y-4">
+-            <div className="flex gap-3">
+-              <div className="h-8 w-8 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
+-                <ShoppingCart className="h-4 w-4 text-blue-600" />
+-              </div>
+-              <div>
+-                <p className="text-[10px] font-bold text-zinc-900">Nouvelle commande #892</p>
+-                <p className="text-[9px] text-zinc-500">Il y a 5 min • par Client KSM</p>
+-              </div>
++        {/* Clients Stat Card */}
++        <Card className="border-2 border-zinc-200 bg-white hover:border-emerald-600 transition-colors shadow-sm rounded-3xl overflow-hidden group">
++          <CardHeader className="p-6 bg-zinc-50 border-b border-zinc-100 flex flex-row items-center justify-between group-hover:bg-emerald-50/50 transition-colors">
++            <CardTitle className="text-sm font-black uppercase tracking-widest text-zinc-500 group-hover:text-emerald-600 transition-colors">
++              Clients Enregistrés
++            </CardTitle>
++            <div className="h-10 w-10 bg-emerald-100 rounded-xl flex items-center justify-center">
++              <Users className="h-5 w-5 text-emerald-600" />
+             </div>
+-            <div className="flex gap-3">
+-              <div className="h-8 w-8 rounded-full bg-orange-50 flex items-center justify-center shrink-0">
+-                <AlertTriangle className="h-4 w-4 text-orange-600" />
+-              </div>
+-              <div>
+-                <p className="text-[10px] font-bold text-zinc-900">Alerte Stock : Croissant</p>
+-                <p className="text-[9px] text-zinc-500">Il y a 2h • Seuil critique atteint</p>
+-              </div>
+-            </div>
+-            <div className="flex gap-3">
+-              <div className="h-8 w-8 rounded-full bg-green-50 flex items-center justify-center shrink-0">
+-                <CheckCircle2 className="h-4 w-4 text-green-600" />
+-              </div>
+-              <div>
+-                <p className="text-[10px] font-bold text-zinc-900">Catalogue mis à jour</p>
+-                <p className="text-[9px] text-zinc-500">Hier • 2 nouveaux articles</p>
+-              </div>
++          </CardHeader>
++          <CardContent className="p-6">
++            <div className="text-4xl font-black text-zinc-900 mb-4">{stats.clients}</div>
++            <Link href={`/admin/${tenantId}/clients`} className="flex items-center text-emerald-600 font-black uppercase tracking-widest text-xs hover:text-emerald-700">
++              Voir les clients <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
++            </Link>
++          </CardContent>
++        </Card>
++
++        {/* Orders Stat Card */}
++        <Card className="border-2 border-zinc-200 bg-white hover:border-amber-600 transition-colors shadow-sm rounded-3xl overflow-hidden group">
++          <CardHeader className="p-6 bg-zinc-50 border-b border-zinc-100 flex flex-row items-center justify-between group-hover:bg-amber-50/50 transition-colors">
++            <CardTitle className="text-sm font-black uppercase tracking-widest text-zinc-500 group-hover:text-amber-600 transition-colors">
++              Commandes (Global)
++            </CardTitle>
++            <div className="h-10 w-10 bg-amber-100 rounded-xl flex items-center justify-center">
++              <ShoppingCart className="h-5 w-5 text-amber-600" />
+             </div>
++          </CardHeader>
++          <CardContent className="p-6">
++            <div className="text-4xl font-black text-zinc-900 mb-4">{stats.orders}</div>
++            <Link href={`/admin/${tenantId}/orders`} className="flex items-center text-amber-600 font-black uppercase tracking-widest text-xs hover:text-amber-700">
++              Gérer les commandes <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
++            </Link>
+           </CardContent>
+         </Card>
+       </div>

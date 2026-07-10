@@ -1,0 +1,1305 @@
+diff --git a/src/app/admin/[tenantId]/products/page.tsx b/src/app/admin/[tenantId]/products/page.tsx
+index afddf64..017fc2b 100644
+--- a/src/app/admin/[tenantId]/products/page.tsx
++++ b/src/app/admin/[tenantId]/products/page.tsx
+@@ -2,7 +2,7 @@
+ 
+ import { useState } from 'react';
+ import { useParams } from 'next/navigation';
+-import { TENANTS, PRODUCTS, CATEGORIES } from '@/lib/mock-data';
++import { TENANTS } from '@/lib/mock-data';
+ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+ import { Button } from '@/components/ui/Button';
+ import { 
+@@ -10,232 +10,1120 @@ import {
+   Search, 
+   Edit2, 
+   Trash2, 
+-  MoreVertical, 
+-  CheckCircle2, 
+-  XCircle,
+-  Package,
+-  X
++  Package, 
++  X,
++  Layers,
++  ChevronRight,
++  Sliders,
++  DollarSign,
++  Tag,
++  Calendar,
++  AlertCircle
+ } from 'lucide-react';
+ import { formatPrice } from '@/lib/utils';
+-
+ import { useProductStore } from '@/store/useProductStore';
++import { useInventoryStore } from '@/store/useInventoryStore';
++import { Product, Variant, Price, Batch, Category, CategoryI18n, VariantAttribute, ProductStatus } from '@/lib/types';
+ 
+ export default function AdminProductsPage() {
+   const { tenantId } = useParams();
+-  const { products, deleteProduct, addProduct, updateProduct } = useProductStore();
++  const { 
++    products, 
++    categories, 
++    categoryI18ns, 
++    variants, 
++    prices, 
++    batches,
++    productSpecs,
++    getCurrentPrice,
++    getVariantAttributes,
++    addProduct,
++    updateProduct,
++    deleteProduct,
++    addVariant,
++    deleteVariant,
++    addPrice,
++    deletePrice,
++    addBatch,
++    deleteBatch,
++    addCategory
++  } = useProductStore();
++
++  const { getVariantStock, createMovement } = useInventoryStore();
++
+   const tenant = TENANTS.find(t => t.slug === tenantId);
++  const [activeTab, setActiveTab] = useState<'products' | 'variants' | 'categories' | 'batches'>('products');
+   const [searchTerm, setSearchTerm] = useState('');
+-  const [isAdding, setIsAdding] = useState(false);
+-  const [newProductData, setNewProductData] = useState({ name: '', price: '', stock: '10' });
+   
++  // Modal / Form states
++  const [isAddingProduct, setIsAddingProduct] = useState(false);
++  const [isEditingProduct, setIsEditingProduct] = useState(false);
++  const [editingProductId, setEditingProductId] = useState<string | null>(null);
++  const [editProductForm, setEditProductForm] = useState({
++    id: '', code: '', name: '', description: '', imageUrl: '', status: 'ACTIVE' as ProductStatus, categoryId: ''
++  });
++  const [isAddingVariant, setIsAddingVariant] = useState(false);
++  const [isAddingPrice, setIsAddingPrice] = useState(false);
++  const [isAddingBatch, setIsAddingBatch] = useState(false);
++  const [isAddingCategory, setIsAddingCategory] = useState(false);
++
++  // Form inputs
++  const [newProduct, setNewProduct] = useState({
++    code: '', name: '', description: '', categoryId: '', imageUrl: '',
++    weightKg: '0', lengthCm: '0', widthCm: '0', heightCm: '0', materials: '',
++    sku: '', barcode: '', attributeName: 'Taille', attributeValue: 'Standard',
++    price: '0', quantity: '0'
++  });
++
++  const [newVariant, setNewVariant] = useState({
++    productId: '', sku: '', barcode: '', 
++    attributeName: 'Taille', attributeValue: 'M',
++    price: '0'
++  });
++
++  const [newPrice, setNewPrice] = useState({
++    variantId: '', amount: '0', priceType: 'RETAIL' as const, effectiveFrom: new Date().toISOString().split('T')[0]
++  });
++
++  const [newBatch, setNewBatch] = useState({
++    productId: '', lotNumber: '', manufacturingDate: new Date().toISOString().split('T')[0], expiryDate: '', quantity: '100'
++  });
++
++  const [newCategory, setNewCategory] = useState({
++    code: '', parentId: '', nameFr: '', descFr: '', nameEn: '', descEn: ''
++  });
++
+   if (!tenant) return null;
+ 
++  const tenantCategories = categories.filter(c => c.tenantId === tenant.id);
+   const tenantProducts = products.filter(p => p.tenantId === tenant.id);
+   const filteredProducts = tenantProducts.filter(p => 
+-    p.name.toLowerCase().includes(searchTerm.toLowerCase())
++    p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
++    p.code.toLowerCase().includes(searchTerm.toLowerCase())
+   );
+ 
+-  const handleDelete = (id: string, name: string) => {
+-    if (confirm(`Êtes-vous sûr de vouloir supprimer définitivement "${name}" ? Cette action est irréversible.`)) {
+-      deleteProduct(id);
++  const getCategoryName = (catId: string, locale = 'fr') => {
++    return categoryI18ns.find(i => i.categoryId === catId && i.locale === locale)?.name || 'Sans Nom';
++  };
++
++  const handleProductSubmit = (e: React.FormEvent) => {
++    e.preventDefault();
++    if (!newProduct.code || !newProduct.name || !newProduct.sku || !newProduct.price) return;
++
++    const pId = `p-${Date.now()}`;
++    const vId = `v-${Date.now()}`;
++
++    const productObj: Product = {
++      id: pId,
++      tenantId: tenant.id,
++      organizationId: 'o1', // default org
++      code: newProduct.code,
++      name: newProduct.name,
++      description: newProduct.description,
++      categoryId: newProduct.categoryId || tenantCategories[0]?.id || 'c1',
++      status: 'ACTIVE',
++      createdAt: new Date().toISOString(),
++      imageUrl: newProduct.imageUrl || 'https://images.unsplash.com/photo-1549931319-a545dcf3bc73?w=500&q=80',
++    };
++
++    const specObj = {
++      productId: pId,
++      weightKg: parseFloat(newProduct.weightKg),
++      lengthCm: parseFloat(newProduct.lengthCm),
++      widthCm: parseFloat(newProduct.widthCm),
++      heightCm: parseFloat(newProduct.heightCm),
++      materials: newProduct.materials
++    };
++
++    const variantObj: Variant = {
++      id: vId,
++      productId: pId,
++      sku: newProduct.sku,
++      barcode: newProduct.barcode,
++      isDefault: true,
++      status: 'ACTIVE'
++    };
++
++    const attrObj: VariantAttribute[] = [
++      { variantId: vId, attributeName: newProduct.attributeName, attributeValue: newProduct.attributeValue }
++    ];
++
++    const priceObj: Price = {
++      id: `pr-${Date.now()}`,
++      variantId: vId,
++      amount: parseFloat(newProduct.price),
++      currency: 'FCFA',
++      priceType: 'RETAIL',
++      effectiveFrom: '2026-01-01'
++    };
++
++    addProduct(productObj, specObj, variantObj, attrObj, priceObj);
++
++    if (parseFloat(newProduct.quantity) > 0) {
++      createMovement({
++        tenantId: tenant.id,
++        organizationId: 'o1',
++        variantId: vId,
++        warehouseId: 'wh1_1',
++        referenceNumber: `INIT-${Date.now()}`,
++        type: 'INBOUND',
++        quantity: parseFloat(newProduct.quantity),
++        status: 'VALIDATED'
++      });
+     }
++
++    setIsAddingProduct(false);
++    // Reset
++    setNewProduct({
++      code: '', name: '', description: '', categoryId: '', imageUrl: '',
++      weightKg: '0', lengthCm: '0', widthCm: '0', heightCm: '0', materials: '',
++      sku: '', barcode: '', attributeName: 'Taille', attributeValue: 'Standard',
++      price: '0', quantity: '0'
++    });
++  };
++
++  const handleEditProductSubmit = async (e: React.FormEvent) => {
++    e.preventDefault();
++    if (!editingProductId) return;
++    
++    const p = products.find(prod => prod.id === editingProductId);
++    if (!p) return;
++
++    const updated: Product = {
++      ...p,
++      name: editProductForm.name,
++      description: editProductForm.description,
++      imageUrl: editProductForm.imageUrl,
++      status: editProductForm.status,
++      categoryId: editProductForm.categoryId,
++    };
++    
++    await updateProduct(updated);
++    setIsEditingProduct(false);
++    setEditingProductId(null);
+   };
+ 
+-  const handleEdit = (product: any) => {
+-    const newName = prompt("Nouveau nom :", product.name);
+-    if (!newName) return;
+-    const newPrice = prompt("Nouveau prix :", product.price.toString());
+-    if (!newPrice) return;
+-    const newStock = prompt("Nouveau stock :", product.stock.toString());
+-    if (!newStock) return;
+-
+-    updateProduct({
+-      ...product,
+-      name: newName,
+-      price: parseInt(newPrice),
+-      stock: parseInt(newStock),
++  const openEditProductModal = (product: Product) => {
++    setEditingProductId(product.id);
++    setEditProductForm({
++      id: product.id,
++      code: product.code,
++      name: product.name,
++      description: product.description || '',
++      imageUrl: product.imageUrl || '',
++      status: (product.status as any) || 'ACTIVE',
++      categoryId: product.categoryId || '',
+     });
++    setIsEditingProduct(true);
+   };
+ 
+-  const handleAddProduct = (e: React.FormEvent) => {
++  const handleVariantSubmit = (e: React.FormEvent) => {
+     e.preventDefault();
+-    if (!newProductData.name || !newProductData.price) return;
+-
+-    const newProduct = {
+-      id: `p${Date.now()}`,
+-      name: newProductData.name,
+-      description: "Nouveau produit ajouté via l'admin",
+-      price: parseInt(newProductData.price),
+-      imageUrl: 'https://images.unsplash.com/photo-1549931319-a545dcf3bc73?w=500&q=80',
+-      categoryId: 'c1',
++    if (!newVariant.productId || !newVariant.sku || !newVariant.price) return;
++
++    const vId = `v-${Date.now()}`;
++    const variantObj: Variant = {
++      id: vId,
++      productId: newVariant.productId,
++      sku: newVariant.sku,
++      barcode: newVariant.barcode,
++      isDefault: false,
++      status: 'ACTIVE'
++    };
++
++    const attrObj: VariantAttribute[] = [
++      { variantId: vId, attributeName: newVariant.attributeName, attributeValue: newVariant.attributeValue }
++    ];
++
++    const priceObj: Price = {
++      id: `pr-${Date.now()}`,
++      variantId: vId,
++      amount: parseFloat(newVariant.price),
++      currency: 'FCFA',
++      priceType: 'RETAIL',
++      effectiveFrom: '2026-01-01'
++    };
++
++    addVariant(variantObj, attrObj, priceObj);
++    setIsAddingVariant(false);
++  };
++
++  const handlePriceSubmit = (e: React.FormEvent) => {
++    e.preventDefault();
++    if (!newPrice.variantId || !newPrice.amount || !newPrice.effectiveFrom) return;
++
++    const priceObj: Price = {
++      id: `pr-${Date.now()}`,
++      variantId: newPrice.variantId,
++      amount: parseFloat(newPrice.amount),
++      currency: 'FCFA',
++      priceType: newPrice.priceType,
++      effectiveFrom: newPrice.effectiveFrom
++    };
++
++    addPrice(priceObj);
++    setIsAddingPrice(false);
++  };
++
++  const handleBatchSubmit = (e: React.FormEvent) => {
++    e.preventDefault();
++    if (!newBatch.productId || !newBatch.lotNumber || !newBatch.manufacturingDate) return;
++
++    const batchObj: Batch = {
++      id: `b-${Date.now()}`,
++      productId: newBatch.productId,
++      lotNumber: newBatch.lotNumber,
++      manufacturingDate: newBatch.manufacturingDate,
++      expiryDate: newBatch.expiryDate || '2027-01-01',
++      quantity: parseInt(newBatch.quantity)
++    };
++
++    addBatch(batchObj);
++    setIsAddingBatch(false);
++  };
++
++  const handleCategorySubmit = (e: React.FormEvent) => {
++    e.preventDefault();
++    if (!newCategory.code || !newCategory.nameFr) return;
++
++    const catId = `c-${Date.now()}`;
++    const parent = categories.find(c => c.id === newCategory.parentId);
++    const lvl = parent ? parent.level + 1 : 0;
++
++    const catObj: Category = {
++      id: catId,
+       tenantId: tenant.id,
+-      stock: parseInt(newProductData.stock),
+-      isFeatured: true
++      organizationId: 'o1',
++      code: newCategory.code,
++      parentId: newCategory.parentId || null,
++      level: lvl
+     };
+-    
+-    addProduct(newProduct);
+-    setIsAdding(false);
+-    setNewProductData({ name: '', price: '', stock: '10' });
++
++    const i18nFr: CategoryI18n = {
++      categoryId: catId,
++      locale: 'fr',
++      name: newCategory.nameFr,
++      description: newCategory.descFr
++    };
++
++    let i18nEn: CategoryI18n | undefined = undefined;
++    if (newCategory.nameEn) {
++      i18nEn = {
++        categoryId: catId,
++        locale: 'en',
++        name: newCategory.nameEn,
++        description: newCategory.descEn
++      };
++    }
++
++    addCategory(catObj, i18nFr, i18nEn);
++    setIsAddingCategory(false);
++    setNewCategory({ code: '', parentId: '', nameFr: '', descFr: '', nameEn: '', descEn: '' });
+   };
+ 
+   return (
+     <div className="space-y-6">
++      {/* Header */}
+       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+         <div>
+-          <h1 className="text-2xl font-black tracking-tight text-zinc-900 uppercase italic">Catalogue</h1>
++          <h1 className="text-2xl font-black tracking-tight text-zinc-900 uppercase italic">Référentiel Catalogue</h1>
+           <p className="text-zinc-500 font-bold uppercase text-[10px] tracking-widest">
+-            Inventaire & Stocks Synchro
++            product-core • Invariant : Zéro Stock dans ce Core • SKU uniques
+           </p>
+         </div>
+-        <Button 
+-          onClick={() => setIsAdding(!isAdding)}
+-          className={`h-10 font-black uppercase italic tracking-tighter gap-2 px-6 shadow-lg transition-all ${isAdding ? 'bg-zinc-100 text-zinc-900 border-2 border-zinc-900 shadow-none' : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-100'}`}
+-        >
+-          {isAdding ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+-          {isAdding ? 'Annuler' : 'Nouveau Produit'}
+-        </Button>
+-      </div>
+-
+-      {isAdding && (
+-        <Card className="border-2 border-blue-600 bg-blue-50/30 shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-4 duration-300">
+-          <form onSubmit={handleAddProduct} className="p-4 grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+-            <div className="space-y-1">
+-              <label className="text-[9px] font-black uppercase tracking-widest text-blue-600">Nom du Produit</label>
+-              <input 
+-                required
+-                className="w-full h-9 bg-white border-2 border-blue-200 rounded-lg px-3 text-xs font-bold focus:border-blue-600 outline-none"
+-                placeholder="Ex: Baguette Tradition"
+-                value={newProductData.name}
+-                onChange={(e) => setNewProductData({...newProductData, name: e.target.value})}
+-              />
+-            </div>
+-            <div className="space-y-1">
+-              <label className="text-[9px] font-black uppercase tracking-widest text-blue-600">Prix (CFA)</label>
+-              <input 
+-                required
+-                type="number"
+-                className="w-full h-9 bg-white border-2 border-blue-200 rounded-lg px-3 text-xs font-bold focus:border-blue-600 outline-none"
+-                placeholder="150"
+-                value={newProductData.price}
+-                onChange={(e) => setNewProductData({...newProductData, price: e.target.value})}
+-              />
+-            </div>
+-            <div className="space-y-1">
+-              <label className="text-[9px] font-black uppercase tracking-widest text-blue-600">Stock Initial</label>
+-              <input 
+-                required
+-                type="number"
+-                className="w-full h-9 bg-white border-2 border-blue-200 rounded-lg px-3 text-xs font-bold focus:border-blue-600 outline-none"
+-                value={newProductData.stock}
+-                onChange={(e) => setNewProductData({...newProductData, stock: e.target.value})}
+-              />
++        
++        <div className="flex gap-2">
++          {activeTab === 'products' && (
++            <Button onClick={() => setIsAddingProduct(true)} className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase text-xs gap-1.5 h-10 px-5 shadow-md">
++              <Plus className="h-4 w-4" /> Nouveau Produit
++            </Button>
++          )}
++          {activeTab === 'variants' && (
++            <div className="flex gap-2">
++              <Button onClick={() => setIsAddingVariant(true)} className="bg-purple-600 hover:bg-purple-700 text-white font-black uppercase text-xs gap-1.5 h-10 px-5 shadow-md">
++                <Plus className="h-4 w-4" /> Nouvelle Variante
++              </Button>
++              <Button onClick={() => setIsAddingPrice(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase text-xs gap-1.5 h-10 px-5 shadow-md">
++                <Plus className="h-4 w-4" /> Tarif Daté
++              </Button>
+             </div>
+-            <Button type="submit" className="h-9 bg-blue-600 hover:bg-blue-700 font-black uppercase text-[10px] tracking-widest italic">
+-              Enregistrer l&apos;article
++          )}
++          {activeTab === 'categories' && (
++            <Button onClick={() => setIsAddingCategory(true)} className="bg-zinc-900 hover:bg-zinc-800 text-white font-black uppercase text-xs gap-1.5 h-10 px-5 shadow-md">
++              <Plus className="h-4 w-4" /> Catégorie
+             </Button>
+-          </form>
+-        </Card>
+-      )}
++          )}
++          {activeTab === 'batches' && (
++            <Button onClick={() => setIsAddingBatch(true)} className="bg-amber-600 hover:bg-amber-700 text-white font-black uppercase text-xs gap-1.5 h-10 px-5 shadow-md">
++              <Plus className="h-4 w-4" /> Enregistrer Lot
++            </Button>
++          )}
++        </div>
++      </div>
++
++      {/* Tabs Menu */}
++      <div className="flex border-b border-zinc-200 gap-6">
++        <button 
++          onClick={() => setActiveTab('products')} 
++          className={`pb-3 text-xs font-black uppercase tracking-widest ${activeTab === 'products' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-zinc-400 hover:text-zinc-900'}`}
++        >
++          Produits
++        </button>
++        <button 
++          onClick={() => setActiveTab('variants')} 
++          className={`pb-3 text-xs font-black uppercase tracking-widest ${activeTab === 'variants' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-zinc-400 hover:text-zinc-900'}`}
++        >
++          Variantes & Prix
++        </button>
++        <button 
++          onClick={() => setActiveTab('categories')} 
++          className={`pb-3 text-xs font-black uppercase tracking-widest ${activeTab === 'categories' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-zinc-400 hover:text-zinc-900'}`}
++        >
++          Catégories (Tree)
++        </button>
++        <button 
++          onClick={() => setActiveTab('batches')} 
++          className={`pb-3 text-xs font-black uppercase tracking-widest ${activeTab === 'batches' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-zinc-400 hover:text-zinc-900'}`}
++        >
++          Lots / Tracabilité
++        </button>
++      </div>
+ 
+-      {/* Toolbar */}
+-      <div className="flex flex-col md:flex-row gap-3">
+-        <div className="relative flex-1">
++      {/* SEARCH / FILTERS */}
++      {activeTab === 'products' && (
++        <div className="relative">
+           <Search className="absolute left-3 top-2.5 h-4 w-4 text-zinc-400" />
+           <input 
+             type="text"
+-            placeholder="Rechercher..."
+-            className="w-full h-10 bg-white border-2 border-zinc-200 rounded-xl pl-10 pr-4 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all"
++            placeholder="Rechercher par nom ou code..."
++            className="w-full h-10 bg-white border-2 border-zinc-200 rounded-xl pl-10 pr-4 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-blue-100"
+             value={searchTerm}
+             onChange={(e) => setSearchTerm(e.target.value)}
+           />
+         </div>
+-        <select className="h-10 bg-white border-2 border-zinc-200 rounded-xl px-4 text-xs font-bold focus:outline-none uppercase tracking-widest">
+-          <option>Catégories</option>
+-          {CATEGORIES.map(c => <option key={c.id}>{c.name}</option>)}
+-        </select>
+-      </div>
++      )}
++
++      {/* TAB 1: PRODUCTS */}
++      {activeTab === 'products' && (
++        <Card className="border-2 border-zinc-200 shadow-sm overflow-hidden">
++          <div className="overflow-x-auto">
++            <table className="w-full text-left border-collapse">
++              <thead>
++                <tr className="bg-zinc-50 border-b text-zinc-500 uppercase text-[9px] font-black tracking-widest">
++                  <th className="p-4">Code / Produit</th>
++                  <th className="p-4">Catégorie</th>
++                  <th className="p-4">Variantes & Stock</th>
++                  <th className="p-4">Prix de base</th>
++                  <th className="p-4">Spécifications</th>
++                  <th className="p-4 text-right">Actions</th>
++                </tr>
++              </thead>
++              <tbody className="divide-y divide-zinc-100 bg-white">
++                {filteredProducts.map((p) => {
++                  const pVariants = variants.filter(v => v.productId === p.id);
++                  const pSpecs = productSpecs.find(s => s.productId === p.id);
++                  const totalStock = pVariants.reduce((acc, v) => acc + (getVariantStock(v.id) || 0), 0);
++                  const defaultVariant = pVariants.find(v => v.isDefault) || pVariants[0];
++                  const basePriceObj = defaultVariant ? getCurrentPrice(defaultVariant.id) : null;
++                  const basePrice = basePriceObj ? basePriceObj.amount : (p.price || 0);
++
++                  return (
++                    <tr key={p.id} className="hover:bg-zinc-50 transition-colors">
++                      <td className="p-4">
++                        <div className="flex items-center gap-3">
++                          <div className="h-10 w-10 border rounded overflow-hidden shrink-0">
++                            <img src={p.imageUrl} alt="" className="h-full w-full object-cover" />
++                          </div>
++                          <div>
++                            <p className="font-black text-xs uppercase italic text-zinc-950">{p.name}</p>
++                            <p className="text-[9px] text-blue-600 font-bold uppercase tracking-widest">{p.code}</p>
++                          </div>
++                        </div>
++                      </td>
++                      <td className="p-4">
++                        <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 bg-zinc-100 rounded text-zinc-600">
++                          {getCategoryName(p.categoryId)}
++                        </span>
++                      </td>
++                      <td className="p-4">
++                        <div className="flex flex-col gap-1">
++                          <span className="text-xs font-black text-zinc-800">
++                            {pVariants.length} variantes
++                          </span>
++                          <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">
++                            Stock: {totalStock}
++                          </span>
++                        </div>
++                      </td>
++                      <td className="p-4">
++                        <span className="text-xs font-black text-blue-600">
++                          {formatPrice(basePrice)}
++                        </span>
++                      </td>
++                      <td className="p-4">
++                        {pSpecs ? (
++                          <div className="text-[9px] text-zinc-500 font-bold uppercase tracking-tighter">
++                            {pSpecs.weightKg}kg • {pSpecs.lengthCm}x{pSpecs.widthCm}x{pSpecs.heightCm}cm • {pSpecs.materials}
++                          </div>
++                        ) : (
++                          <span className="text-[9px] text-zinc-400">Aucune spec</span>
++                        )}
++                      </td>
++                      <td className="p-4 text-right flex justify-end gap-2">
++                        <Button
++                          variant="ghost"
++                          size="icon"
++                          className="h-8 w-8 text-blue-500 hover:bg-blue-50"
++                          onClick={() => openEditProductModal(p)}
++                        >
++                          <Edit2 className="h-3.5 w-3.5" />
++                        </Button>
++                        <Button 
++                          variant="ghost" 
++                          size="icon" 
++                          className="h-8 w-8 text-red-500 hover:bg-red-50"
++                          onClick={() => {
++                            if(confirm(`Supprimer définitivement ${p.name} et toutes ses variantes?`)) {
++                              deleteProduct(p.id);
++                            }
++                          }}
++                        >
++                          <Trash2 className="h-3.5 w-3.5" />
++                        </Button>
++                      </td>
++                    </tr>
++                  );
++                })}
++              </tbody>
++            </table>
++          </div>
++        </Card>
++      )}
+ 
+-      {/* Products Table */}
+-      <Card className="border-2 border-zinc-200 overflow-hidden shadow-sm">
+-        <div className="overflow-x-auto">
+-          <table className="w-full text-left border-collapse">
+-            <thead>
+-              <tr className="bg-zinc-50 border-b text-zinc-500 uppercase text-[9px] font-black tracking-widest">
+-                <th className="p-4">Produit</th>
+-                <th className="p-4">Catégorie</th>
+-                <th className="p-4 text-right">Prix HT</th>
+-                <th className="p-4 text-center">Stock</th>
+-                <th className="p-4 text-center">Visibilité</th>
+-                <th className="p-4 text-right">Actions</th>
+-              </tr>
+-            </thead>
+-            <tbody className="divide-y divide-zinc-100">
+-              {filteredProducts.map((product) => (
+-                <tr key={product.id} className="bg-white hover:bg-zinc-50 transition-colors group">
+-                  <td className="p-4">
+-                    <div className="flex items-center gap-3">
+-                      <div className="h-10 w-10 rounded-lg border overflow-hidden shrink-0">
+-                        <img src={product.imageUrl} className="h-full w-full object-cover" alt="" />
++      {/* TAB 2: VARIANTS & PRICES */}
++      {activeTab === 'variants' && (
++        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
++          {/* Variants List */}
++          <div className="lg:col-span-2 space-y-4">
++            <h2 className="text-sm font-black uppercase tracking-widest text-zinc-500">Liste des Variantes (SKUs)</h2>
++            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
++              {variants.filter(v => products.find(p => p.id === v.productId)?.tenantId === tenant.id).map(v => {
++                const product = products.find(p => p.id === v.productId);
++                const attrs = getVariantAttributes(v.id);
++                const curPriceObj = getCurrentPrice(v.id);
++                
++                // Calculate stock level on-demand
++                const stock = getVariantStock(v.id);
++
++                return (
++                  <Card key={v.id} className="border-2 border-zinc-200 overflow-hidden relative">
++                    <CardHeader className="p-4 bg-zinc-50/50 pb-2 border-b">
++                      <div className="flex justify-between items-start">
++                        <div>
++                          <p className="text-[9px] font-black uppercase text-blue-600 tracking-widest">SKU: {v.sku}</p>
++                          <h3 className="font-black text-xs uppercase italic text-zinc-900 mt-0.5">{product?.name}</h3>
++                        </div>
++                        {v.isDefault && (
++                          <span className="bg-blue-600 text-white text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded">Par défaut</span>
++                        )}
+                       </div>
+-                      <div>
+-                        <p className="font-black text-xs text-zinc-900 uppercase italic tracking-tight">{product.name}</p>
+-                        <p className="text-[9px] text-zinc-400 font-bold tracking-widest">ID: {product.id.toUpperCase()}</p>
++                    </CardHeader>
++                    <CardContent className="p-4 space-y-2">
++                      <div className="flex justify-between text-[10px] font-bold text-zinc-500">
++                        <span>Code-barres:</span>
++                        <span className="font-mono text-zinc-800">{v.barcode || 'N/A'}</span>
+                       </div>
+-                    </div>
+-                  </td>
+-                  <td className="p-4">
+-                    <span className="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 bg-zinc-100 rounded text-zinc-500">
+-                      {CATEGORIES.find(c => c.id === product.categoryId)?.name}
+-                    </span>
+-                  </td>
+-                  <td className="p-4 text-right font-black text-xs text-zinc-900 italic">
+-                    {formatPrice(product.price)}
+-                  </td>
+-                  <td className="p-4 text-center">
+-                    <span className={`text-xs font-black ${product.stock <= 5 ? 'text-red-600' : 'text-zinc-900'}`}>
+-                      {product.stock}
+-                    </span>
+-                  </td>
+-                  <td className="p-4 text-center">
+-                    {product.stock > 0 ? (
+-                      <span className="text-[9px] font-black uppercase tracking-widest text-green-600 bg-green-50 px-2 py-0.5 rounded">En Ligne</span>
+-                    ) : (
+-                      <span className="text-[9px] font-black uppercase tracking-widest text-red-600 bg-red-50 px-2 py-0.5 rounded">Masqué</span>
+-                    )}
+-                  </td>
+-                  <td className="p-4 text-right">
+-                    <div className="flex items-center justify-end gap-1">
+-                      <Button 
+-                        variant="ghost" 
+-                        size="icon" 
+-                        className="h-8 w-8 hover:bg-blue-50 hover:text-blue-600"
+-                        onClick={() => handleEdit(product)}
+-                      >
+-                        <Edit2 className="h-3.5 w-3.5" />
+-                      </Button>
++                      
++                      {/* Attributes */}
++                      <div className="flex flex-wrap gap-1 mt-1">
++                        {attrs.map((at, idx) => (
++                          <span key={idx} className="bg-zinc-100 text-zinc-700 text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded">
++                            {at.attributeName}: {at.attributeValue}
++                          </span>
++                        ))}
++                      </div>
++
++                      {/* Current Pricing */}
++                      <div className="flex justify-between items-end border-t pt-2 mt-2">
++                        <div>
++                          <p className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest">Tarif en Vigueur</p>
++                          <p className="text-lg font-black text-emerald-600 italic tracking-tight">
++                            {curPriceObj ? formatPrice(curPriceObj.amount) : 'Non Tarifé'}
++                          </p>
++                        </div>
++                        <div className="text-right">
++                          <p className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest">Stock Estimé (Recalculé)</p>
++                          <p className={`text-xs font-black ${stock === 0 ? 'text-red-500' : 'text-zinc-900'}`}>
++                            {stock} unités
++                          </p>
++                        </div>
++                      </div>
++                    </CardContent>
++                    
++                    {/* Delete button */}
++                    <div className="absolute top-2 right-2 flex gap-1">
+                       <Button 
+                         variant="ghost" 
+                         size="icon" 
+-                        className="h-8 w-8 hover:bg-red-50 hover:text-red-600"
+-                        onClick={() => handleDelete(product.id, product.name)}
++                        className="h-7 w-7 text-red-500 hover:bg-red-50"
++                        onClick={() => {
++                          if (confirm(`Supprimer la variante ${v.sku}?`)) {
++                            deleteVariant(v.id);
++                          }
++                        }}
+                       >
+-                        <Trash2 className="h-3.5 w-3.5" />
++                        <Trash2 className="h-3 w-3" />
+                       </Button>
+                     </div>
+-                  </td>
++                  </Card>
++                );
++              })}
++            </div>
++          </div>
++
++          {/* Pricing Versions */}
++          <div className="space-y-4">
++            <h2 className="text-sm font-black uppercase tracking-widest text-zinc-500">Historique des Prix Versionnés</h2>
++            <Card className="border-2 border-zinc-200 bg-white">
++              <CardContent className="p-4 space-y-4">
++                <p className="text-[10px] font-bold text-zinc-500 leading-snug">
++                  Les tarifs sont historisés par date d&apos;effet. Le prix appliqué est le plus récent dont la date d&apos;effet est antérieure ou égale à la date courante.
++                </p>
++                <div className="space-y-3 divide-y divide-zinc-100 max-h-[400px] overflow-y-auto pr-1">
++                  {prices.filter(p => variants.find(v => v.id === p.variantId && products.find(prod => prod.id === v.productId)?.tenantId === tenant.id)).map(p => {
++                    const variantObj = variants.find(v => v.id === p.variantId);
++                    const prodObj = products.find(pr => pr.id === variantObj?.productId);
++                    return (
++                      <div key={p.id} className="pt-3 flex justify-between items-center text-xs">
++                        <div>
++                          <p className="font-black text-zinc-900 uppercase italic leading-none">{prodObj?.name}</p>
++                          <p className="text-[9px] text-zinc-400 font-mono mt-0.5">SKU: {variantObj?.sku} ({p.priceType})</p>
++                          <div className="flex items-center gap-1 text-[9px] text-blue-600 font-bold uppercase tracking-wider mt-1">
++                            <Calendar className="h-3 w-3" /> Effet le {p.effectiveFrom}
++                          </div>
++                        </div>
++                        <div className="flex items-center gap-2">
++                          <span className="font-black text-emerald-600">{formatPrice(p.amount)}</span>
++                          <Button 
++                            variant="ghost" 
++                            size="icon" 
++                            className="h-6 w-6 text-red-500 hover:bg-red-50"
++                            onClick={() => deletePrice(p.id)}
++                          >
++                            <Trash2 className="h-3 w-3" />
++                          </Button>
++                        </div>
++                      </div>
++                    );
++                  })}
++                </div>
++              </CardContent>
++            </Card>
++          </div>
++        </div>
++      )}
++
++      {/* TAB 3: CATEGORIES */}
++      {activeTab === 'categories' && (
++        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
++          {/* Category Tree */}
++          <Card className="border-2 border-zinc-200">
++            <CardHeader className="bg-zinc-50/50 py-3 border-b">
++              <CardTitle className="text-xs uppercase italic font-black">Hiérarchie Arborescente</CardTitle>
++            </CardHeader>
++            <CardContent className="p-4 space-y-2">
++              {/* Level 0 categories */}
++              {tenantCategories.filter(c => c.parentId === null).map(lvl0 => {
++                const subCats = tenantCategories.filter(c => c.parentId === lvl0.id);
++                return (
++                  <div key={lvl0.id} className="space-y-1.5 border-b pb-3 last:border-0 last:pb-0">
++                    <div className="flex items-center gap-2 font-black text-sm text-zinc-900">
++                      <span className="text-blue-600">📁</span>
++                      <span className="uppercase italic">{getCategoryName(lvl0.id)}</span>
++                      <span className="text-[8px] font-mono text-zinc-400">({lvl0.code})</span>
++                    </div>
++                    {/* Level 1 categories */}
++                    {subCats.length > 0 && (
++                      <div className="pl-6 space-y-1 border-l-2 border-zinc-100">
++                        {subCats.map(lvl1 => (
++                          <div key={lvl1.id} className="flex items-center gap-2 text-xs font-bold text-zinc-600">
++                            <ChevronRight className="h-3.5 w-3.5 text-zinc-300" />
++                            <span>{getCategoryName(lvl1.id)}</span>
++                            <span className="text-[8px] font-mono text-zinc-400">({lvl1.code})</span>
++                          </div>
++                        ))}
++                      </div>
++                    )}
++                  </div>
++                );
++              })}
++            </CardContent>
++          </Card>
++
++          {/* Translations list */}
++          <Card className="border-2 border-zinc-200">
++            <CardHeader className="bg-zinc-50/50 py-3 border-b">
++              <CardTitle className="text-xs uppercase italic font-black">Localisations (Multi-Langues)</CardTitle>
++            </CardHeader>
++            <CardContent className="p-4">
++              <div className="space-y-3">
++                {tenantCategories.map(cat => {
++                  const translations = categoryI18ns.filter(i => i.categoryId === cat.id);
++                  return (
++                    <div key={cat.id} className="border-b pb-2 last:border-0">
++                      <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">{cat.code}</p>
++                      <div className="grid grid-cols-2 gap-4 mt-1">
++                        {translations.map((tr, idx) => (
++                          <div key={idx} className="bg-zinc-50 p-2 rounded-lg border">
++                            <span className="text-[8px] font-black uppercase px-1.5 py-0.5 bg-blue-100 text-blue-800 rounded">
++                              {tr.locale.toUpperCase()}
++                            </span>
++                            <p className="text-xs font-black text-zinc-800 mt-1 uppercase italic">{tr.name}</p>
++                            <p className="text-[10px] text-zinc-500 mt-0.5">{tr.description}</p>
++                          </div>
++                        ))}
++                      </div>
++                    </div>
++                  );
++                })}
++              </div>
++            </CardContent>
++          </Card>
++        </div>
++      )}
++
++      {/* TAB 4: BATCHES */}
++      {activeTab === 'batches' && (
++        <Card className="border-2 border-zinc-200">
++          <div className="overflow-x-auto">
++            <table className="w-full text-left border-collapse">
++              <thead>
++                <tr className="bg-zinc-50 border-b text-zinc-500 uppercase text-[9px] font-black tracking-widest">
++                  <th className="p-4">Numéro de Lot</th>
++                  <th className="p-4">Produit</th>
++                  <th className="p-4">Date de Fab.</th>
++                  <th className="p-4">Date Expiration</th>
++                  <th className="p-4">Quantité Lot</th>
++                  <th className="p-4">Statut Tracabilité</th>
++                  <th className="p-4 text-right">Actions</th>
+                 </tr>
+-              ))}
+-            </tbody>
+-          </table>
++              </thead>
++              <tbody className="divide-y divide-zinc-100 bg-white">
++                {batches.filter(b => products.find(p => p.id === b.productId)?.tenantId === tenant.id).map(b => {
++                  const isExpired = new Date(b.expiryDate) < new Date();
++                  return (
++                    <tr key={b.id} className="hover:bg-zinc-50">
++                      <td className="p-4 font-mono font-black text-xs text-zinc-900">{b.lotNumber}</td>
++                      <td className="p-4 font-black text-xs uppercase italic text-zinc-800">
++                        {products.find(p => p.id === b.productId)?.name}
++                      </td>
++                      <td className="p-4 text-xs font-bold text-zinc-500">{b.manufacturingDate}</td>
++                      <td className="p-4 text-xs font-bold text-zinc-500">{b.expiryDate}</td>
++                      <td className="p-4 text-xs font-black text-zinc-900">{b.quantity} u.</td>
++                      <td className="p-4">
++                        {isExpired ? (
++                          <span className="bg-red-50 text-red-600 text-[8px] font-black uppercase px-2 py-0.5 rounded border border-red-200 flex items-center gap-1 w-max">
++                            <AlertCircle className="h-3 w-3" /> Périmé / Expired
++                          </span>
++                        ) : (
++                          <span className="bg-green-50 text-green-600 text-[8px] font-black uppercase px-2 py-0.5 rounded border border-green-200 w-max">
++                            Conforme / Actif
++                          </span>
++                        )}
++                      </td>
++                      <td className="p-4 text-right">
++                        <Button 
++                          variant="ghost" 
++                          size="icon" 
++                          className="h-8 w-8 text-red-500 hover:bg-red-50"
++                          onClick={() => deleteBatch(b.id)}
++                        >
++                          <Trash2 className="h-3.5 w-3.5" />
++                        </Button>
++                      </td>
++                    </tr>
++                  );
++                })}
++              </tbody>
++            </table>
++          </div>
++        </Card>
++      )}
++
++      {/* MODAL 1: ADD PRODUCT */}
++      {isAddingProduct && (
++        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
++          <div className="bg-white rounded-3xl border-2 border-zinc-950 p-6 max-w-2xl w-full shadow-2xl overflow-y-auto max-h-[90vh]">
++            <div className="flex justify-between items-center mb-6">
++              <h3 className="font-black text-lg uppercase italic text-zinc-900">Ajouter un produit (Catalog Referentiel)</h3>
++              <button onClick={() => setIsAddingProduct(false)} className="h-8 w-8 border rounded-full flex items-center justify-center hover:bg-zinc-50">
++                <X className="h-4 w-4" />
++              </button>
++            </div>
++            
++            <form onSubmit={handleProductSubmit} className="space-y-4">
++              <div className="grid grid-cols-2 gap-4">
++                <div className="space-y-1">
++                  <label className="text-[9px] font-black uppercase tracking-widest text-zinc-400">Code Produit unique</label>
++                  <input required className="w-full border-2 rounded-xl h-10 px-3 text-xs font-bold" placeholder="PRD-BAG-TRAD" value={newProduct.code} onChange={e => setNewProduct({...newProduct, code: e.target.value})} />
++                </div>
++                <div className="space-y-1">
++                  <label className="text-[9px] font-black uppercase tracking-widest text-zinc-400">Nom du produit</label>
++                  <input required className="w-full border-2 rounded-xl h-10 px-3 text-xs font-bold" placeholder="Baguette Tradition" value={newProduct.name} onChange={e => setNewProduct({...newProduct, name: e.target.value})} />
++                </div>
++              </div>
++              <div className="space-y-1">
++                <label className="text-[9px] font-black uppercase tracking-widest text-zinc-400">Description</label>
++                <textarea rows={2} className="w-full border-2 rounded-xl p-3 text-xs font-bold" placeholder="Détails du produit..." value={newProduct.description} onChange={e => setNewProduct({...newProduct, description: e.target.value})} />
++              </div>
++              <div className="grid grid-cols-2 gap-4">
++                <div className="space-y-1">
++                  <label className="text-[9px] font-black uppercase tracking-widest text-zinc-400">Catégorie</label>
++                  <select required className="w-full border-2 rounded-xl h-10 px-3 text-xs font-bold" value={newProduct.categoryId} onChange={e => setNewProduct({...newProduct, categoryId: e.target.value})}>
++                    <option value="">Sélectionner une catégorie...</option>
++                    {tenantCategories.map(cat => (
++                      <option key={cat.id} value={cat.id}>{getCategoryName(cat.id)}</option>
++                    ))}
++                  </select>
++                </div>
++                <div className="space-y-1">
++                  <label className="text-[9px] font-black uppercase tracking-widest text-zinc-400">URL Image (optionnel)</label>
++                  <input type="url" className="w-full border-2 rounded-xl h-10 px-3 text-xs font-bold" placeholder="https://..." value={newProduct.imageUrl} onChange={e => setNewProduct({...newProduct, imageUrl: e.target.value})} />
++                </div>
++              </div>
++
++              {/* SPECIFICATIONS (product-core Spec) */}
++              <div className="border-t pt-4">
++                <h4 className="text-xs font-black uppercase tracking-widest text-blue-600 mb-2">Spécifications Physiques (Facultatif)</h4>
++                <div className="grid grid-cols-4 gap-2">
++                  <div className="space-y-1">
++                    <label className="text-[8px] font-bold text-zinc-400">Poids (Kg)</label>
++                    <input type="number" step="0.01" className="w-full border rounded-lg h-9 px-2 text-xs font-bold" value={newProduct.weightKg} onChange={e => setNewProduct({...newProduct, weightKg: e.target.value})} />
++                  </div>
++                  <div className="space-y-1">
++                    <label className="text-[8px] font-bold text-zinc-400">L (cm)</label>
++                    <input type="number" className="w-full border rounded-lg h-9 px-2 text-xs font-bold" value={newProduct.lengthCm} onChange={e => setNewProduct({...newProduct, lengthCm: e.target.value})} />
++                  </div>
++                  <div className="space-y-1">
++                    <label className="text-[8px] font-bold text-zinc-400">l (cm)</label>
++                    <input type="number" className="w-full border rounded-lg h-9 px-2 text-xs font-bold" value={newProduct.widthCm} onChange={e => setNewProduct({...newProduct, widthCm: e.target.value})} />
++                  </div>
++                  <div className="space-y-1">
++                    <label className="text-[8px] font-bold text-zinc-400">h (cm)</label>
++                    <input type="number" className="w-full border rounded-lg h-9 px-2 text-xs font-bold" value={newProduct.heightCm} onChange={e => setNewProduct({...newProduct, heightCm: e.target.value})} />
++                  </div>
++                </div>
++                <div className="space-y-1 mt-2">
++                  <label className="text-[8px] font-bold text-zinc-400">Ingrédients / Matériaux</label>
++                  <input type="text" className="w-full border rounded-lg h-9 px-2 text-xs font-bold" placeholder="Coton, farine, aluminium..." value={newProduct.materials} onChange={e => setNewProduct({...newProduct, materials: e.target.value})} />
++                </div>
++              </div>
++
++              {/* DEFAULT VARIANT & INITIAL PRICE */}
++              <div className="border-t pt-4">
++                <h4 className="text-xs font-black uppercase tracking-widest text-purple-600 mb-2">Première Variante & Prix Initial</h4>
++                <div className="grid grid-cols-2 gap-4">
++                  <div className="space-y-1">
++                    <label className="text-[9px] font-black uppercase tracking-widest text-zinc-400">SKU unique</label>
++                    <input required className="w-full border-2 rounded-xl h-10 px-3 text-xs font-bold" placeholder="BAG-TRAD-STD" value={newProduct.sku} onChange={e => setNewProduct({...newProduct, sku: e.target.value})} />
++                  </div>
++                  <div className="space-y-1">
++                    <label className="text-[9px] font-black uppercase tracking-widest text-zinc-400">Code-barres</label>
++                    <input className="w-full border-2 rounded-xl h-10 px-3 text-xs font-bold" placeholder="12345678901" value={newProduct.barcode} onChange={e => setNewProduct({...newProduct, barcode: e.target.value})} />
++                  </div>
++                </div>
++                <div className="grid grid-cols-4 gap-2 mt-2">
++                  <div className="space-y-1">
++                    <label className="text-[8px] font-bold text-zinc-400">Attribut (Taille, RAM...)</label>
++                    <input className="w-full border rounded-lg h-9 px-2 text-xs font-bold" placeholder="Taille" value={newProduct.attributeName} onChange={e => setNewProduct({...newProduct, attributeName: e.target.value})} />
++                  </div>
++                  <div className="space-y-1">
++                    <label className="text-[8px] font-bold text-zinc-400">Valeur (XL, 16GB...)</label>
++                    <input className="w-full border rounded-lg h-9 px-2 text-xs font-bold" placeholder="Standard" value={newProduct.attributeValue} onChange={e => setNewProduct({...newProduct, attributeValue: e.target.value})} />
++                  </div>
++                  <div className="space-y-1">
++                    <label className="text-[8px] font-bold text-zinc-400">Prix Initial (FCFA)</label>
++                    <input required type="number" className="w-full border rounded-lg h-9 px-2 text-xs font-bold" placeholder="200" value={newProduct.price} onChange={e => setNewProduct({...newProduct, price: e.target.value})} />
++                  </div>
++                  <div className="space-y-1">
++                    <label className="text-[8px] font-bold text-emerald-500">Stock Initial</label>
++                    <input required type="number" className="w-full border border-emerald-200 bg-emerald-50 rounded-lg h-9 px-2 text-xs font-bold text-emerald-800" placeholder="0" value={newProduct.quantity} onChange={e => setNewProduct({...newProduct, quantity: e.target.value})} />
++                  </div>
++                </div>
++              </div>
++
++              <div className="pt-4 flex justify-end gap-3">
++                <Button type="button" variant="outline" onClick={() => setIsAddingProduct(false)} className="font-bold">Annuler</Button>
++                <Button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest">Enregistrer l&apos;article</Button>
++              </div>
++            </form>
++          </div>
+         </div>
+-        
+-        {filteredProducts.length === 0 && (
+-          <div className="p-20 text-center bg-white">
+-            <Package className="h-16 w-16 text-zinc-200 mx-auto mb-4" />
+-            <p className="text-xl font-black text-zinc-300 uppercase italic tracking-tighter">Aucun produit trouvé</p>
++      )}
++
++      {/* MODAL 2: ADD VARIANT */}
++      {isEditingProduct && (
++        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
++          <div className="bg-white rounded-3xl border-2 border-zinc-950 p-6 max-w-xl w-full shadow-2xl">
++            <div className="flex justify-between items-center mb-6">
++              <h3 className="font-black text-lg uppercase italic text-zinc-900">Modifier le produit</h3>
++              <button onClick={() => setIsEditingProduct(false)} className="h-8 w-8 border rounded-full flex items-center justify-center hover:bg-zinc-50">
++                <X className="h-4 w-4" />
++              </button>
++            </div>
++            
++            <form onSubmit={handleEditProductSubmit} className="space-y-4">
++              <div className="grid grid-cols-2 gap-4">
++                <div className="space-y-1">
++                  <label className="text-[9px] font-black uppercase tracking-widest text-zinc-400">ID Unique</label>
++                  <input readOnly disabled className="w-full border-2 rounded-xl h-10 px-3 text-xs font-bold bg-zinc-100 text-zinc-500 cursor-not-allowed" value={editProductForm.id} />
++                </div>
++                <div className="space-y-1">
++                  <label className="text-[9px] font-black uppercase tracking-widest text-zinc-400">Code Produit</label>
++                  <input readOnly disabled className="w-full border-2 rounded-xl h-10 px-3 text-xs font-bold bg-zinc-100 text-zinc-500 cursor-not-allowed" value={editProductForm.code} />
++                </div>
++              </div>
++
++              <div className="space-y-1">
++                <label className="text-[9px] font-black uppercase tracking-widest text-zinc-400">Nom du produit</label>
++                <input required className="w-full border-2 rounded-xl h-10 px-3 text-xs font-bold" placeholder="Baguette Tradition" value={editProductForm.name} onChange={e => setEditProductForm({...editProductForm, name: e.target.value})} />
++              </div>
++              
++              <div className="space-y-1">
++                <label className="text-[9px] font-black uppercase tracking-widest text-zinc-400">Catégorie</label>
++                <select className="w-full border-2 rounded-xl h-10 px-3 text-xs font-bold" value={editProductForm.categoryId} onChange={e => setEditProductForm({...editProductForm, categoryId: e.target.value})}>
++                  <option value="">Sélectionner une catégorie</option>
++                  {categories.map(cat => (
++                    <option key={cat.id} value={cat.id}>{categoryI18ns.find(c => c.categoryId === cat.id)?.name || cat.code}</option>
++                  ))}
++                </select>
++              </div>
++              
++              <div className="space-y-1">
++                <label className="text-[9px] font-black uppercase tracking-widest text-zinc-400">Description</label>
++                <textarea className="w-full border-2 rounded-xl p-3 text-xs font-medium min-h-[80px]" placeholder="Description du produit..." value={editProductForm.description} onChange={e => setEditProductForm({...editProductForm, description: e.target.value})} />
++              </div>
++
++              <div className="space-y-1">
++                <label className="text-[9px] font-black uppercase tracking-widest text-zinc-400">URL Image (optionnel)</label>
++                <input type="url" className="w-full border-2 rounded-xl h-10 px-3 text-xs font-bold" placeholder="https://..." value={editProductForm.imageUrl} onChange={e => setEditProductForm({...editProductForm, imageUrl: e.target.value})} />
++              </div>
++              
++              <div className="space-y-1">
++                <label className="text-[9px] font-black uppercase tracking-widest text-zinc-400">Statut</label>
++                <select className="w-full border-2 rounded-xl h-10 px-3 text-xs font-bold" value={editProductForm.status} onChange={e => setEditProductForm({...editProductForm, status: e.target.value as any})}>
++                  <option value="ACTIVE">Actif</option>
++                  <option value="INACTIVE">Inactif</option>
++                  <option value="DRAFT">Brouillon</option>
++                  <option value="ARCHIVED">Archivé</option>
++                </select>
++              </div>
++
++              <Button type="submit" className="w-full mt-4 h-12 bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-widest shadow-lg">
++                Enregistrer les modifications
++              </Button>
++            </form>
++          </div>
++        </div>
++      )}
++
++      {isAddingVariant && (
++        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
++          <div className="bg-white rounded-3xl border-2 border-zinc-950 p-6 max-w-md w-full shadow-2xl">
++            <div className="flex justify-between items-center mb-4">
++              <h3 className="font-black text-lg uppercase italic text-zinc-900">Nouvelle Variante</h3>
++              <button onClick={() => setIsAddingVariant(false)} className="h-8 w-8 border rounded-full flex items-center justify-center">
++                <X className="h-4 w-4" />
++              </button>
++            </div>
++            <form onSubmit={handleVariantSubmit} className="space-y-4">
++              <div className="space-y-1">
++                <label className="text-[9px] font-black uppercase tracking-widest text-zinc-400">Produit Parent</label>
++                <select required className="w-full border-2 rounded-xl h-10 px-3 text-xs font-bold" value={newVariant.productId} onChange={e => setNewVariant({...newVariant, productId: e.target.value})}>
++                  <option value="">Sélectionner le produit...</option>
++                  {tenantProducts.map(p => (
++                    <option key={p.id} value={p.id}>{p.name}</option>
++                  ))}
++                </select>
++              </div>
++              <div className="space-y-1">
++                <label className="text-[9px] font-black uppercase tracking-widest text-zinc-400">SKU unique</label>
++                <input required className="w-full border-2 rounded-xl h-10 px-3 text-xs font-bold" placeholder="BAG-TRAD-XL" value={newVariant.sku} onChange={e => setNewVariant({...newVariant, sku: e.target.value})} />
++              </div>
++              <div className="space-y-1">
++                <label className="text-[9px] font-black uppercase tracking-widest text-zinc-400">Code-barres</label>
++                <input className="w-full border-2 rounded-xl h-10 px-3 text-xs font-bold" placeholder="3250390001012" value={newVariant.barcode} onChange={e => setNewVariant({...newVariant, barcode: e.target.value})} />
++              </div>
++              <div className="grid grid-cols-2 gap-2">
++                <div className="space-y-1">
++                  <label className="text-[8px] font-bold text-zinc-400">Nom Attribut</label>
++                  <input className="w-full border rounded-lg h-9 px-2 text-xs font-bold" placeholder="Taille" value={newVariant.attributeName} onChange={e => setNewVariant({...newVariant, attributeName: e.target.value})} />
++                </div>
++                <div className="space-y-1">
++                  <label className="text-[8px] font-bold text-zinc-400">Valeur Attribut</label>
++                  <input className="w-full border rounded-lg h-9 px-2 text-xs font-bold" placeholder="XL" value={newVariant.attributeValue} onChange={e => setNewVariant({...newVariant, attributeValue: e.target.value})} />
++                </div>
++              </div>
++              <div className="space-y-1">
++                <label className="text-[9px] font-black uppercase tracking-widest text-zinc-400">Prix Initial (FCFA)</label>
++                <input required type="number" className="w-full border-2 rounded-xl h-10 px-3 text-xs font-bold" placeholder="300" value={newVariant.price} onChange={e => setNewVariant({...newVariant, price: e.target.value})} />
++              </div>
++
++              <div className="pt-2 flex justify-end gap-2">
++                <Button type="button" variant="outline" onClick={() => setIsAddingVariant(false)}>Annuler</Button>
++                <Button type="submit" className="bg-purple-600 text-white font-black uppercase tracking-widest">Créer Variante</Button>
++              </div>
++            </form>
++          </div>
++        </div>
++      )}
++
++      {/* MODAL 3: ADD PRICE */}
++      {isAddingPrice && (
++        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
++          <div className="bg-white rounded-3xl border-2 border-zinc-950 p-6 max-w-md w-full shadow-2xl">
++            <div className="flex justify-between items-center mb-4">
++              <h3 className="font-black text-lg uppercase italic text-zinc-900">Nouveau Tarif Versionné</h3>
++              <button onClick={() => setIsAddingPrice(false)} className="h-8 w-8 border rounded-full flex items-center justify-center">
++                <X className="h-4 w-4" />
++              </button>
++            </div>
++            <form onSubmit={handlePriceSubmit} className="space-y-4">
++              <div className="space-y-1">
++                <label className="text-[9px] font-black uppercase tracking-widest text-zinc-400">Sélectionner la Variante (SKU)</label>
++                <select required className="w-full border-2 rounded-xl h-10 px-3 text-xs font-bold" value={newPrice.variantId} onChange={e => setNewPrice({...newPrice, variantId: e.target.value})}>
++                  <option value="">Sélectionner la variante...</option>
++                  {variants.filter(v => products.find(p => p.id === v.productId)?.tenantId === tenant.id).map(v => (
++                    <option key={v.id} value={v.id}>{products.find(p => p.id === v.productId)?.name} ({v.sku})</option>
++                  ))}
++                </select>
++              </div>
++              <div className="space-y-1">
++                <label className="text-[9px] font-black uppercase tracking-widest text-zinc-400">Montant (FCFA)</label>
++                <input required type="number" className="w-full border-2 rounded-xl h-10 px-3 text-xs font-bold" placeholder="250" value={newPrice.amount} onChange={e => setNewPrice({...newPrice, amount: e.target.value})} />
++              </div>
++              <div className="space-y-1">
++                <label className="text-[9px] font-black uppercase tracking-widest text-zinc-400">Type de prix</label>
++                <select className="w-full border-2 rounded-xl h-10 px-3 text-xs font-bold" value={newPrice.priceType} onChange={e => setNewPrice({...newPrice, priceType: e.target.value as any})}>
++                  <option value="RETAIL">RETAIL (Détail)</option>
++                  <option value="WHOLESALE">WHOLESALE (Gros)</option>
++                </select>
++              </div>
++              <div className="space-y-1">
++                <label className="text-[9px] font-black uppercase tracking-widest text-zinc-400">Date d&apos;Effet</label>
++                <input required type="date" className="w-full border-2 rounded-xl h-10 px-3 text-xs font-bold" value={newPrice.effectiveFrom} onChange={e => setNewPrice({...newPrice, effectiveFrom: e.target.value})} />
++              </div>
++
++              <div className="pt-2 flex justify-end gap-2">
++                <Button type="button" variant="outline" onClick={() => setIsAddingPrice(false)}>Annuler</Button>
++                <Button type="submit" className="bg-emerald-600 text-white font-black uppercase tracking-widest">Enregistrer Tarif</Button>
++              </div>
++            </form>
++          </div>
++        </div>
++      )}
++
++      {/* MODAL 4: ADD BATCH */}
++      {isAddingBatch && (
++        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
++          <div className="bg-white rounded-3xl border-2 border-zinc-950 p-6 max-w-md w-full shadow-2xl">
++            <div className="flex justify-between items-center mb-4">
++              <h3 className="font-black text-lg uppercase italic text-zinc-900">Enregistrer un Lot</h3>
++              <button onClick={() => setIsAddingBatch(false)} className="h-8 w-8 border rounded-full flex items-center justify-center">
++                <X className="h-4 w-4" />
++              </button>
++            </div>
++            <form onSubmit={handleBatchSubmit} className="space-y-4">
++              <div className="space-y-1">
++                <label className="text-[9px] font-black uppercase tracking-widest text-zinc-400">Produit Concerné</label>
++                <select required className="w-full border-2 rounded-xl h-10 px-3 text-xs font-bold" value={newBatch.productId} onChange={e => setNewBatch({...newBatch, productId: e.target.value})}>
++                  <option value="">Sélectionner le produit...</option>
++                  {tenantProducts.map(p => (
++                    <option key={p.id} value={p.id}>{p.name}</option>
++                  ))}
++                </select>
++              </div>
++              <div className="space-y-1">
++                <label className="text-[9px] font-black uppercase tracking-widest text-zinc-400">Numéro de Lot (Unique)</label>
++                <input required className="w-full border-2 rounded-xl h-10 px-3 text-xs font-bold" placeholder="LOT-PHA-001" value={newBatch.lotNumber} onChange={e => setNewBatch({...newBatch, lotNumber: e.target.value})} />
++              </div>
++              <div className="grid grid-cols-2 gap-2">
++                <div className="space-y-1">
++                  <label className="text-[8px] font-bold text-zinc-400">Date de Fabrication</label>
++                  <input required type="date" className="w-full border rounded-lg h-9 px-2 text-xs font-bold" value={newBatch.manufacturingDate} onChange={e => setNewBatch({...newBatch, manufacturingDate: e.target.value})} />
++                </div>
++                <div className="space-y-1">
++                  <label className="text-[8px] font-bold text-zinc-400">Date d&apos;Expiration</label>
++                  <input required type="date" className="w-full border rounded-lg h-9 px-2 text-xs font-bold" value={newBatch.expiryDate} onChange={e => setNewBatch({...newBatch, expiryDate: e.target.value})} />
++                </div>
++              </div>
++              <div className="space-y-1">
++                <label className="text-[9px] font-black uppercase tracking-widest text-zinc-400">Quantité Initiale</label>
++                <input required type="number" className="w-full border-2 rounded-xl h-10 px-3 text-xs font-bold" value={newBatch.quantity} onChange={e => setNewBatch({...newBatch, quantity: e.target.value})} />
++              </div>
++
++              <div className="pt-2 flex justify-end gap-2">
++                <Button type="button" variant="outline" onClick={() => setIsAddingBatch(false)}>Annuler</Button>
++                <Button type="submit" className="bg-amber-600 text-white font-black uppercase tracking-widest">Valider le Lot</Button>
++              </div>
++            </form>
+           </div>
+-        )}
+-      </Card>
++        </div>
++      )}
++
++      {/* MODAL 5: ADD CATEGORY */}
++      {isAddingCategory && (
++        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
++          <div className="bg-white rounded-3xl border-2 border-zinc-950 p-6 max-w-md w-full shadow-2xl">
++            <div className="flex justify-between items-center mb-4">
++              <h3 className="font-black text-lg uppercase italic text-zinc-900">Ajouter une Catégorie</h3>
++              <button onClick={() => setIsAddingCategory(false)} className="h-8 w-8 border rounded-full flex items-center justify-center">
++                <X className="h-4 w-4" />
++              </button>
++            </div>
++            <form onSubmit={handleCategorySubmit} className="space-y-4">
++              <div className="grid grid-cols-2 gap-2">
++                <div className="space-y-1">
++                  <label className="text-[9px] font-black uppercase tracking-widest text-zinc-400">Code Catégorie</label>
++                  <input required className="w-full border-2 rounded-xl h-10 px-3 text-xs font-bold" placeholder="CAT-PAI-STD" value={newCategory.code} onChange={e => setNewCategory({...newCategory, code: e.target.value})} />
++                </div>
++                <div className="space-y-1">
++                  <label className="text-[9px] font-black uppercase tracking-widest text-zinc-400">Parent (Arborescence)</label>
++                  <select className="w-full border-2 rounded-xl h-10 px-3 text-xs font-bold" value={newCategory.parentId} onChange={e => setNewCategory({...newCategory, parentId: e.target.value})}>
++                    <option value="">Aucune (Racine - Niveau 0)</option>
++                    {tenantCategories.filter(c => c.level === 0).map(cat => (
++                      <option key={cat.id} value={cat.id}>{getCategoryName(cat.id)}</option>
++                    ))}
++                  </select>
++                </div>
++              </div>
++
++              {/* French translation */}
++              <div className="border-t pt-2">
++                <h4 className="text-[10px] font-black uppercase text-blue-600">Traduction : Français (Obligatoire)</h4>
++                <div className="space-y-2 mt-2">
++                  <input required className="w-full border rounded-lg h-9 px-2 text-xs font-bold" placeholder="Nom (Ex: Pains spéciaux)" value={newCategory.nameFr} onChange={e => setNewCategory({...newCategory, nameFr: e.target.value})} />
++                  <input className="w-full border rounded-lg h-9 px-2 text-xs font-bold" placeholder="Description courte..." value={newCategory.descFr} onChange={e => setNewCategory({...newCategory, descFr: e.target.value})} />
++                </div>
++              </div>
++
++              {/* English translation */}
++              <div className="border-t pt-2">
++                <h4 className="text-[10px] font-black uppercase text-zinc-500">Traduction : Anglais (Optionnel)</h4>
++                <div className="space-y-2 mt-2">
++                  <input className="w-full border rounded-lg h-9 px-2 text-xs font-bold" placeholder="Name (Ex: Special Breads)" value={newCategory.nameEn} onChange={e => setNewCategory({...newCategory, nameEn: e.target.value})} />
++                  <input className="w-full border rounded-lg h-9 px-2 text-xs font-bold" placeholder="Short description..." value={newCategory.descEn} onChange={e => setNewCategory({...newCategory, descEn: e.target.value})} />
++                </div>
++              </div>
++
++              <div className="pt-2 flex justify-end gap-2">
++                <Button type="button" variant="outline" onClick={() => setIsAddingCategory(false)}>Annuler</Button>
++                <Button type="submit" className="bg-zinc-900 text-white font-black uppercase tracking-widest">Créer Catégorie</Button>
++              </div>
++            </form>
++          </div>
++        </div>
++      )}
+     </div>
+   );
+ }

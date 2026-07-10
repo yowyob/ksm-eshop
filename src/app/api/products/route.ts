@@ -20,7 +20,8 @@ export async function GET(request: NextRequest) {
       status: 'ACTIVE',
       photo: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&q=80&w=600',
       unitPrice: 45000,
-      currency: 'FCFA'
+      currency: 'FCFA',
+      tenantName: 'KSM GADGETS'
     },
     {
       id: 'demo-prod-2',
@@ -33,11 +34,12 @@ export async function GET(request: NextRequest) {
       status: 'ACTIVE',
       photo: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=600',
       unitPrice: 25000,
-      currency: 'FCFA'
+      currency: 'FCFA',
+      tenantName: 'KSM GADGETS'
     },
     {
       id: 'demo-prod-3',
-      organizationId: 'demo-org',
+      organizationId: 'o1',
       code: 'PROD-003',
       sku: 'PROD-003',
       name: 'Enceinte Bluetooth',
@@ -46,14 +48,64 @@ export async function GET(request: NextRequest) {
       status: 'ACTIVE',
       photo: 'https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?auto=format&fit=crop&q=80&w=600',
       unitPrice: 18000,
-      currency: 'FCFA'
+      currency: 'FCFA',
+      tenantName: 'KSM SARL'
+    },
+    {
+      id: 'demo-prod-4',
+      organizationId: 'o2',
+      code: 'PROD-004',
+      sku: 'PROD-004',
+      name: 'Sneakers Urbaines',
+      description: 'Chaussures de sport urbaines, confortables et stylées.',
+      categoryId: 'c3',
+      status: 'ACTIVE',
+      photo: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=600',
+      unitPrice: 35000,
+      currency: 'FCFA',
+      tenantName: 'KSM FASHION'
+    },
+    {
+      id: 'demo-prod-5',
+      organizationId: 'o3',
+      code: 'PROD-005',
+      sku: 'PROD-005',
+      name: 'Sac à Dos Pro',
+      description: 'Sac à dos pour ordinateur avec port USB de recharge intégré.',
+      categoryId: 'c4',
+      status: 'ACTIVE',
+      photo: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&q=80&w=600',
+      unitPrice: 22000,
+      currency: 'FCFA',
+      tenantName: 'KSM LUGGAGE'
+    },
+    {
+      id: 'demo-prod-6',
+      organizationId: 'o1',
+      code: 'PROD-006',
+      sku: 'PROD-006',
+      name: 'Écran 27" 4K',
+      description: 'Moniteur haute résolution pour professionnels de l\'image.',
+      categoryId: 'c1',
+      status: 'ACTIVE',
+      photo: 'https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?auto=format&fit=crop&q=80&w=600',
+      unitPrice: 195000,
+      currency: 'FCFA',
+      tenantName: 'KSM SARL'
     }
   ];
+
+  if (organizationId === 'ALL') {
+    return Response.json({
+      success: true,
+      data: mockProducts
+    });
+  }
 
   if (organizationId === 'demo-org') {
     return Response.json({
       success: true,
-      data: mockProducts
+      data: mockProducts.filter(p => p.organizationId === 'demo-org' || p.organizationId === 'o1')
     });
   }
 
@@ -68,13 +120,14 @@ export async function GET(request: NextRequest) {
 
   if (!result.success) {
     const reserved = getLocalReservedQuantities(organizationId);
-    const updatedMock = mockProducts.map(p => {
+    const orgMockProducts = mockProducts.filter(p => p.organizationId === organizationId || organizationId === 'ALL');
+    const updatedMock = orgMockProducts.map(p => {
        const deduction = reserved[p.id] || 0;
        return { ...p, quantity: Math.max(0, (p.quantity || 0) - deduction) };
     });
     return Response.json({
       success: true,
-      data: updatedMock
+      data: updatedMock.length > 0 ? updatedMock : mockProducts // Fallback to all mocks if empty for demo
     });
   }
   
@@ -108,7 +161,6 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     
-    // Inject default organizationId if not provided
     if (!body.organizationId) {
       body.organizationId = process.env.DEFAULT_ORGANIZATION_ID || 'o1';
     }

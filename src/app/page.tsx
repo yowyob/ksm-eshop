@@ -1,33 +1,61 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
-import { ShieldCheck, Zap, Globe, BarChart3, ArrowRight, Building2, Loader2, AlertTriangle } from 'lucide-react';
+import { Loader2, AlertTriangle, ShieldCheck, ShoppingCart } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/Card';
-import { Organization } from '@/lib/types';
+import { Organization, Product } from '@/lib/types';
+import { GlobalNavbar } from '@/components/global/GlobalNavbar';
+import { useCartStore } from '@/store/useCartStore';
 
-export default function KSMCoreLandingPage() {
+export default function GlobalMarketplacePage() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchOrganizations = async () => {
+  // Search, Filter, Sort States
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [sortOrder, setSortOrder] = useState<'NONE' | 'LOW_TO_HIGH' | 'HIGH_TO_LOW'>('NONE');
+
+  const { addItem } = useCartStore();
+
+  const fetchData = async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/organizations');
-      const data = await res.json();
-      if (data.success) {
+      const [orgsRes, prodsRes] = await Promise.all([
+        fetch('/api/organizations'),
+        fetch('/api/products?organizationId=ALL')
+      ]);
+
+      const orgsData = await orgsRes.json();
+      const prodsData = await prodsRes.json();
+
+      if (orgsData.success) {
         let list: Organization[] = [];
-        const raw = data.data;
+        const raw = orgsData.data;
         if (Array.isArray(raw)) list = raw;
         else if (raw?.content && Array.isArray(raw.content)) list = raw.content;
         else if (raw?.data && Array.isArray(raw.data)) list = raw.data;
         else if (raw && typeof raw === 'object') list = [raw];
         setOrganizations(list);
+      }
+
+      if (prodsData.success) {
+        let pList: Product[] = [];
+        const raw = prodsData.data;
+        if (Array.isArray(raw)) pList = raw;
+        else if (raw?.content && Array.isArray(raw.content)) pList = raw.content;
+        else if (raw?.data && Array.isArray(raw.data)) pList = raw.data;
+        
+        // Randomize products initially
+        pList.sort(() => Math.random() - 0.5);
+        setProducts(pList);
       } else {
-        setError(data.message || 'Impossible de charger les organisations depuis le kernel.');
+        setError(prodsData.message || 'Erreur lors du chargement des produits.');
       }
     } catch (err: any) {
       setError(err.message || 'Erreur de connexion avec le serveur.');
@@ -37,262 +65,178 @@ export default function KSMCoreLandingPage() {
   };
 
   useEffect(() => {
-    fetchOrganizations();
+    fetchData();
   }, []);
 
-  // Définir des couleurs thématiques dynamiques basées sur l'ID/nom
-  const getThemeColor = (index: number) => {
-    const colors = ['#2563eb', '#059669', '#d97706', '#7c3aed', '#db2777', '#0891b2'];
-    return colors[index % colors.length];
+  const filteredAndSortedProducts = useMemo(() => {
+    let result = [...products];
+
+    // Search filter
+    if (searchQuery.trim()) {
+      const lowerQ = searchQuery.toLowerCase();
+      result = result.filter(p => 
+        p.name?.toLowerCase().includes(lowerQ) || 
+        p.description?.toLowerCase().includes(lowerQ)
+      );
+    }
+
+    // Category filter
+    if (selectedCategory && selectedCategory !== 'all') {
+      result = result.filter(p => p.categoryId === selectedCategory);
+    }
+
+    // Sorting
+    if (sortOrder === 'LOW_TO_HIGH') {
+      result.sort((a, b) => (a.unitPrice || 0) - (b.unitPrice || 0));
+    } else if (sortOrder === 'HIGH_TO_LOW') {
+      result.sort((a, b) => (b.unitPrice || 0) - (a.unitPrice || 0));
+    }
+
+    return result;
+  }, [products, searchQuery, selectedCategory, sortOrder]);
+
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('fr-FR').format(price);
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-100 font-sans text-zinc-950">
-      {/* Navigation */}
-      <header className="fixed top-0 z-50 w-full border-b border-zinc-200 bg-white shadow-sm">
-        <div className="container mx-auto flex h-16 items-center justify-between px-4">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg">
-              <span className="text-white font-bold text-xl">K</span>
-            </div>
-            <span className="text-xl font-black tracking-tighter text-zinc-900 uppercase">KSM eShop</span>
+    <div className="flex min-h-screen flex-col bg-zinc-100 font-sans">
+      <GlobalNavbar 
+        organizations={organizations}
+        onSearch={setSearchQuery}
+        onCategorySelect={setSelectedCategory}
+        selectedCategory={selectedCategory}
+      />
+
+      <main className="flex-1 w-full max-w-[1500px] mx-auto px-4 py-8">
+        
+        {/* Banner */}
+        <div className="w-full bg-gradient-to-r from-blue-700 to-indigo-900 rounded-lg p-8 mb-8 text-white shadow-md relative overflow-hidden">
+          <div className="relative z-10">
+            <h1 className="text-3xl font-black mb-2">Bienvenue sur KSM eShop</h1>
+            <p className="text-lg opacity-90 max-w-2xl">Découvrez des milliers de produits issus des meilleures boutiques partenaires. Commandez en un clic avec une logistique unifiée.</p>
           </div>
-          <nav className="hidden md:flex items-center gap-8">
-            <Link href="#features" className="text-sm font-bold text-zinc-600 hover:text-blue-600 transition-colors">Fonctionnalités</Link>
-            <Link href="#tenants" className="text-sm font-bold text-zinc-600 hover:text-blue-600 transition-colors">Boutiques</Link>
-          </nav>
-          <div className="flex gap-4">
-             <Link href="/admin/organizations">
-               <Button variant="outline" className="border-zinc-300 font-bold hover:bg-zinc-50">Espace Admin Kernel</Button>
-             </Link>
+          <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-gradient-to-l from-white/20 to-transparent pointer-events-none" />
+        </div>
+
+        {/* Filters bar */}
+        <div className="flex flex-col sm:flex-row justify-between items-center bg-white p-4 rounded-lg shadow-sm mb-6 border border-zinc-200">
+          <div className="text-sm font-bold text-zinc-700 mb-4 sm:mb-0">
+            {filteredAndSortedProducts.length} résultats {searchQuery && <span>pour "{searchQuery}"</span>}
+          </div>
+          <div className="flex items-center gap-2 text-sm">
+            <label className="font-bold text-zinc-600">Trier par :</label>
+            <select 
+              className="border border-zinc-300 rounded px-3 py-1.5 outline-none focus:border-amber-500 bg-white shadow-sm"
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value as any)}
+            >
+              <option value="NONE">Pertinence (Aléatoire)</option>
+              <option value="LOW_TO_HIGH">Prix : Croissant</option>
+              <option value="HIGH_TO_LOW">Prix : Décroissant</option>
+            </select>
           </div>
         </div>
-      </header>
 
-      <main className="flex-1 pt-16">
-        {/* Hero Section - Premium & Explanatory */}
-        <section className="relative py-24 md:py-32 bg-white border-b border-zinc-200 overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px] opacity-50" />
-          <div className="container mx-auto px-4 text-center relative z-10">
-            <span className="px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest bg-blue-50 text-blue-600 border border-blue-200">
-              Plateforme Multi-Boutiques Camerounaise
-            </span>
-            <h1 className="text-5xl font-black tracking-tight sm:text-7xl text-zinc-900 mt-6 leading-[1.1]">
-              Toutes vos boutiques préférées <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">au même endroit.</span>
-            </h1>
-            <p className="mx-auto mt-8 max-w-3xl text-lg md:text-xl text-zinc-600 font-medium leading-relaxed">
-              KSM eShop rassemble les meilleures enseignes commerciales locales sur une seule et unique plateforme. 
-              Naviguez d'une boutique à l'autre, consultez leurs stocks en temps réel et achetez en toute simplicité.
-            </p>
-            <div className="mt-12 flex justify-center gap-4 flex-wrap">
-              <Link href="#tenants">
-                <Button size="lg" className="h-16 px-10 text-lg gap-3 bg-zinc-900 hover:bg-zinc-800 text-white shadow-xl transition-all hover:scale-105 font-bold rounded-2xl">
-                  Parcourir les vitrines <ArrowRight className="h-5 w-5" />
-                </Button>
-              </Link>
-            </div>
+        {loading && (
+          <div className="flex flex-col items-center justify-center py-20">
+            <Loader2 className="h-10 w-10 text-amber-500 animate-spin mb-4" />
+            <p className="text-sm font-bold text-zinc-500">Chargement des produits...</p>
           </div>
-        </section>
+        )}
 
-        {/* Brand Concept Section */}
-        <section className="py-20 bg-zinc-50 border-b border-zinc-200">
-          <div className="container mx-auto px-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-              <Card className="border-2 border-zinc-200 bg-white p-8 rounded-3xl shadow-sm hover:shadow-md transition-shadow">
-                <h3 className="text-lg font-black uppercase tracking-tight text-zinc-900 italic">1. Choisissez votre enseigne</h3>
-                <p className="mt-3 text-sm font-medium text-zinc-500 leading-relaxed">
-                  Chaque vendeur possède son propre espace personnalisé, ses produits uniques et sa gestion logistique autonome.
-                </p>
-              </Card>
-              <Card className="border-2 border-zinc-200 bg-white p-8 rounded-3xl shadow-sm hover:shadow-md transition-shadow">
-                <h3 className="text-lg font-black uppercase tracking-tight text-zinc-900 italic">2. Stock 100% réel</h3>
-                <p className="mt-3 text-sm font-medium text-zinc-500 leading-relaxed">
-                  Grâce à la synchronisation directe avec le Kernel KSM, les stocks physiques en magasin correspondent à la vitrine web.
-                </p>
-              </Card>
-              <Card className="border-2 border-zinc-200 bg-white p-8 rounded-3xl shadow-sm hover:shadow-md transition-shadow">
-                <h3 className="text-lg font-black uppercase tracking-tight text-zinc-900 italic">3. Paiement Unique ePay</h3>
-                <p className="mt-3 text-sm font-medium text-zinc-500 leading-relaxed">
-                  Réglez vos achats en toute confiance avec votre portefeuille centralisé ePay KSM, rapide et crypté.
-                </p>
-              </Card>
-            </div>
+        {error && (
+          <div className="max-w-2xl mx-auto bg-red-50 border border-red-200 p-6 rounded-lg text-center text-red-700">
+            <AlertTriangle className="h-8 w-8 mx-auto mb-2" />
+            <p className="font-bold">{error}</p>
+            <Button onClick={fetchData} variant="outline" className="mt-4 border-red-200 text-red-700 hover:bg-red-100">
+              Réessayer
+            </Button>
           </div>
-        </section>
+        )}
 
-        {/* Boutiques Section - Grille dynamique connectée au Kernel */}
-        <section id="tenants" className="py-24 bg-white">
-          <div className="container mx-auto px-4">
-            <div className="text-center mb-16">
-              <h2 className="text-4xl font-black text-zinc-900 uppercase tracking-tighter italic">Visitez les Boutiques Partenaires</h2>
-              <p className="mt-2 text-zinc-500 font-bold uppercase text-xs tracking-widest">Sélectionnez une enseigne pour commencer vos achats</p>
-              <div className="h-1.5 w-24 bg-blue-600 mx-auto mt-4 rounded-full" />
-            </div>
-            
-            {loading && (
-              <div className="flex flex-col items-center justify-center py-16">
-                <Loader2 className="h-12 w-12 text-blue-600 animate-spin mb-4" />
-                <p className="text-sm font-black uppercase tracking-widest text-zinc-500">Chargement des vitrines en direct...</p>
-              </div>
-            )}
-
-            {error && (
-              <div className="max-w-2xl mx-auto bg-amber-50 border-2 border-amber-300 p-8 rounded-2xl text-center">
-                <AlertTriangle className="h-12 w-12 text-amber-600 mx-auto mb-4" />
-                <h3 className="text-xl font-black text-amber-900 uppercase tracking-tight mb-2">Authentification Kernel Requise</h3>
-                <p className="text-sm text-amber-800 font-medium mb-6">
-                  {error} <br />
-                  <span className="text-xs text-amber-700 mt-2 block font-normal">
-                    (Veuillez fournir le code MFA pour activer la synchronisation live)
-                  </span>
-                </p>
-                <Button onClick={fetchOrganizations} variant="outline" className="border-amber-700 text-amber-900 hover:bg-amber-100 font-bold">
-                  Réessayer la connexion
-                </Button>
-              </div>
-            )}
-
-            {!loading && !error && (
-              <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:max-w-5xl mx-auto">
-                {organizations.map((org, idx) => {
-                  const themeColor = getThemeColor(idx);
-                  const displayName = org.displayName || org.shortName || org.longName || org.name || "Boutique Partenaire";
-                  return (
-                    <Card key={org.id} className="group hover:border-zinc-900 transition-all duration-300 overflow-hidden border-2 border-zinc-200 rounded-3xl shadow-sm hover:shadow-xl">
-                      <CardContent className="p-0">
-                        <div className="p-8">
-                          <div className="flex items-center gap-5 mb-6">
-                            <div className="h-14 w-14 rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-inner shrink-0" style={{ backgroundColor: themeColor }}>
-                              {displayName[0].toUpperCase()}
-                            </div>
-                            <div>
-                              <h3 className="text-2xl font-black text-zinc-900 tracking-tight uppercase italic">{displayName}</h3>
-                              <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest mt-1">Enseigne Officielle</p>
-                            </div>
-                          </div>
-                          <p className="text-zinc-500 font-bold text-sm mb-8 leading-relaxed line-clamp-2">
-                            {org.description || `Bienvenue chez ${displayName}. Venez découvrir notre large gamme de produits de qualité et nos stocks synchronisés en temps réel.`}
-                          </p>
-                          <Link href={`/${org.id}`}>
-                            <Button className="w-full h-14 text-md font-black uppercase tracking-wider shadow-md hover:opacity-90 transition-opacity rounded-xl text-white" style={{ backgroundColor: themeColor }}>
-                              Entrer dans la boutique
-                            </Button>
-                          </Link>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-
-                {organizations.length === 0 && (
-                  <div className="col-span-full text-center py-12 bg-white rounded-2xl border-2 border-dashed border-zinc-300">
-                    <Building2 className="h-12 w-12 text-zinc-400 mx-auto mb-3" />
-                    <p className="text-zinc-500 font-bold uppercase text-sm">Aucune organisation trouvée dans le kernel.</p>
+        {!loading && !error && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            {filteredAndSortedProducts.map(product => (
+              <Card key={product.id} className="group hover:shadow-xl transition-shadow border border-zinc-200 rounded-lg overflow-hidden flex flex-col bg-white">
+                <Link href={`/${product.organizationId || 'o1'}/products/${product.id}`} className="block relative aspect-square bg-white p-4">
+                  {product.photo ? (
+                    <img 
+                      src={product.photo} 
+                      alt={product.name}
+                      className="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-zinc-100 flex items-center justify-center rounded">
+                      <span className="text-zinc-400 text-xs">Image non disponible</span>
+                    </div>
+                  )}
+                  {/* Badge boutique */}
+                  <div className="absolute top-2 left-2 bg-black/70 backdrop-blur-md text-white text-[10px] font-bold px-2 py-1 rounded-sm uppercase tracking-wider">
+                    {(product as any).tenantName || 'Boutique KSM'}
                   </div>
-                )}
+                </Link>
+                
+                <CardContent className="p-4 flex flex-col flex-1">
+                  <Link href={`/${product.organizationId || 'o1'}/products/${product.id}`} className="block mb-2">
+                    <h3 className="font-bold text-zinc-900 line-clamp-2 leading-tight group-hover:text-amber-600 transition-colors text-sm">
+                      {product.name}
+                    </h3>
+                  </Link>
+                  <p className="text-xs text-zinc-500 mb-3 line-clamp-2">{product.description}</p>
+                  
+                  <div className="mt-auto">
+                    <div className="text-xl font-black text-zinc-900 mb-3">
+                      {formatPrice(product.unitPrice || 0)} <span className="text-sm font-bold text-zinc-600">{product.currency || 'FCFA'}</span>
+                    </div>
+                    
+                    <Button 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        addItem({
+                          productId: product.id,
+                          name: product.name,
+                          price: product.unitPrice || 0,
+                          image: product.photo || '',
+                          quantity: 1,
+                          tenantId: product.organizationId
+                        });
+                      }}
+                      className="w-full bg-[#ffd814] hover:bg-[#f7ca00] text-zinc-900 font-bold border-none shadow-sm rounded-full text-sm h-9"
+                    >
+                      Ajouter au panier
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+
+            {filteredAndSortedProducts.length === 0 && (
+              <div className="col-span-full text-center py-20">
+                <p className="text-zinc-500 font-bold text-lg">Aucun produit ne correspond à votre recherche.</p>
               </div>
             )}
           </div>
-        </section>
-
-        {/* Section Commerçant - Sombre pour trancher */}
-        <section className="py-20 bg-zinc-950 text-white relative overflow-hidden border-t-2 border-zinc-900">
-          <div className="container mx-auto px-4 text-center relative z-10">
-            <h2 className="text-3xl font-black uppercase tracking-tighter italic">Espace Logistique & Administration</h2>
-            <p className="mt-4 text-zinc-400 font-medium max-w-xl mx-auto text-sm leading-relaxed">
-              Gérants de boutiques ? Connectez-vous à votre interface pour piloter vos stocks physiques, suivre vos transactions et administrer vos clients.
-            </p>
-            <div className="mt-10 flex flex-wrap justify-center gap-4">
-              <Link href="/admin/organizations">
-                <Button variant="outline" className="border-2 border-zinc-700 text-white hover:bg-white hover:text-black font-black uppercase text-xs tracking-wider h-14 px-8 rounded-xl shadow-lg transition-all">
-                  Accéder au Panneau d'Administration
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </section>
-
-        {/* Features - Éléments visuels clairs */}
-        <section id="features" className="py-24 bg-zinc-50 border-t border-zinc-200">
-          <div className="container mx-auto px-4">
-            <h2 className="text-3xl font-black text-center text-zinc-900 uppercase italic tracking-tighter mb-16">Propulsé par la Suite KSM</h2>
-            <div className="grid grid-cols-1 gap-12 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="flex flex-col items-center text-center group">
-                <div className="h-20 w-20 bg-blue-50 rounded-3xl flex items-center justify-center mb-6 group-hover:bg-blue-600 transition-colors border-2 border-blue-100">
-                  <Zap className="h-10 w-10 text-blue-600 group-hover:text-white transition-colors" />
-                </div>
-                <h3 className="text-lg font-black text-zinc-900 uppercase italic">Stock Synchrone</h3>
-                <p className="mt-3 text-zinc-500 font-bold text-xs leading-relaxed max-w-xs">
-                  Mise à jour automatique et instantanée entre vos dépôts physiques et le eShop.
-                </p>
-              </div>
-              <div className="flex flex-col items-center text-center group">
-                <div className="h-20 w-20 bg-green-50 rounded-3xl flex items-center justify-center mb-6 group-hover:bg-green-600 transition-colors border-2 border-green-100">
-                  <ShieldCheck className="h-10 w-10 text-green-600 group-hover:text-white transition-colors" />
-                </div>
-                <h3 className="text-lg font-black text-zinc-900 uppercase italic">ePay Intégré</h3>
-                <p className="mt-3 text-zinc-500 font-bold text-xs leading-relaxed max-w-xs">
-                  Sécurité des règlements électroniques par prélèvements cryptés et traçables.
-                </p>
-              </div>
-              <div className="flex flex-col items-center text-center group">
-                <div className="h-20 w-20 bg-purple-50 rounded-3xl flex items-center justify-center mb-6 group-hover:bg-purple-600 transition-colors border-2 border-purple-100">
-                  <Globe className="h-10 w-10 text-purple-600 group-hover:text-white transition-colors" />
-                </div>
-                <h3 className="text-lg font-black text-zinc-900 uppercase italic">Multi-Tenancy</h3>
-                <p className="mt-3 text-zinc-500 font-bold text-xs leading-relaxed max-w-xs">
-                  Chaque vendeur est 100% autonome avec sa marque et sa logistique propre.
-                </p>
-              </div>
-              <div className="flex flex-col items-center text-center group">
-                <div className="h-20 w-20 bg-orange-50 rounded-3xl flex items-center justify-center mb-6 group-hover:bg-orange-600 transition-colors border-2 border-orange-100">
-                  <BarChart3 className="h-10 w-10 text-orange-600 group-hover:text-white transition-colors" />
-                </div>
-                <h3 className="text-lg font-black text-zinc-900 uppercase italic">Analytics Pro</h3>
-                <p className="mt-3 text-zinc-500 font-bold text-xs leading-relaxed max-w-xs">
-                  Suivez votre performance commerciale, vos ventes et vos stocks par boutique.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
+        )}
       </main>
 
       {/* Footer Pro - Client side */}
-      <footer className="py-16 bg-zinc-900 text-zinc-400 border-t-2 border-zinc-950">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-10 mb-12">
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <div className="h-8 w-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg">
-                  <span className="text-white font-bold text-lg">K</span>
-                </div>
-                <span className="text-lg font-black tracking-tight text-white uppercase italic">KSM eShop</span>
-              </div>
-              <p className="text-xs font-bold leading-relaxed max-w-sm">
-                La première plateforme camerounaise multi-boutiques connectée en direct avec le progiciel Kernel Core pour une gestion logistique parfaite.
-              </p>
+      <footer className="py-12 bg-[#232f3e] text-zinc-300 mt-auto">
+        <div className="container mx-auto px-4 text-center">
+          <div className="flex items-center justify-center gap-2 mb-6">
+            <div className="h-6 w-6 bg-amber-500 rounded flex items-center justify-center">
+              <span className="text-zinc-900 font-bold text-sm leading-none">K</span>
             </div>
-            <div className="space-y-4">
-              <h3 className="text-white font-black uppercase text-xs tracking-widest">Liens Utiles</h3>
-              <ul className="space-y-2 text-xs font-bold uppercase">
-                <li><Link href="#features" className="hover:text-white transition-colors">Fonctionnalités</Link></li>
-                <li><Link href="#tenants" className="hover:text-white transition-colors">Explorer les Boutiques</Link></li>
-                <li><Link href="/admin/organizations" className="hover:text-white transition-colors">Espace Gérant</Link></li>
-              </ul>
-            </div>
-            <div className="space-y-4">
-              <h3 className="text-white font-black uppercase text-xs tracking-widest">Informations</h3>
-              <p className="text-xs font-bold">Douala, Cameroun</p>
-              <p className="text-xs font-bold text-zinc-500">Intégration technologique de pointe pour les PME locales.</p>
-            </div>
+            <span className="text-lg font-black tracking-tight text-white">KSM eShop</span>
           </div>
-          <div className="border-t border-zinc-800 pt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
-            <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider">&copy; 2026 KSM Core System. Tous droits réservés.</p>
-            <div className="flex items-center gap-2 text-zinc-600">
-              <ShieldCheck className="h-4 w-4" />
-              <span className="text-[10px] uppercase font-black tracking-widest">Sécurité Chiffrée Active</span>
+          <p className="text-xs font-medium mb-8 max-w-md mx-auto">
+            La première plateforme camerounaise multi-boutiques connectée en direct avec le progiciel Kernel Core pour une gestion logistique parfaite.
+          </p>
+          <div className="border-t border-zinc-700 pt-6 flex flex-col items-center gap-2">
+            <p className="text-[11px] font-bold text-zinc-500">&copy; 2026 KSM Core System. Tous droits réservés.</p>
+            <div className="flex items-center gap-2 text-zinc-500">
+              <ShieldCheck className="h-3 w-3" />
+              <span className="text-[10px] uppercase font-bold tracking-widest">Sécurité Chiffrée Active</span>
             </div>
           </div>
         </div>
