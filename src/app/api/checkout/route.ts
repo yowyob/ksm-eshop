@@ -128,7 +128,51 @@ export async function POST(request: NextRequest) {
       ordersCreated.push(orderPayload);
     }
 
-    return Response.json({ success: true, data: ordersCreated });
+    const grandTotal = ordersCreated.reduce((sum, o) => sum + o.total, 0);
+    const orderIds = ordersCreated.map(o => o.id).join(',');
+    const mainTenantId = Object.keys(groupedItems)[0] || 'default-tenant';
+
+    const KERNEL_CLIENT_ID = process.env.KERNEL_CLIENT_ID || 'ksm-client-id';
+    const KERNEL_API_KEY = process.env.KERNEL_API_KEY || 'ksm-api-key';
+    const KERNEL_TENANT_ID = process.env.KERNEL_TENANT_ID || 'ksm-tenant-id';
+
+    const paymentPayload = {
+      amount: grandTotal,
+      method: 'STRIPE',
+      userId: customerId || '00000000-0000-0000-0000-000000000000',
+      organizationId: mainTenantId,
+      callbackUrl: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/webhooks/payment`,
+      metadata: { orderIds: orderIds }
+    };
+
+    let stripeCheckoutUrl = `/mock-stripe-checkout?orderIds=${orderIds}&amount=${grandTotal}`; // Simulation Stripe par défaut
+
+    try {
+      const paymentRes = await fetch('https://payment-dev.yowyob.com/api/v1/transactions/direct', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Client-Id': KERNEL_CLIENT_ID,
+          'X-Api-Key': KERNEL_API_KEY,
+          'X-Tenant-Id': KERNEL_TENANT_ID,
+          'X-Organization-Id': mainTenantId
+        },
+        body: JSON.stringify(paymentPayload)
+      });
+      
+      if (paymentRes.ok) {
+        const paymentData = await paymentRes.json();
+        if (paymentData.stripeCheckoutUrl) {
+          stripeCheckoutUrl = paymentData.stripeCheckoutUrl;
+        }
+      } else {
+        console.warn("[CHECKOUT] API Paiement Yowyob a échoué. Utilisation de la simulation Stripe.");
+      }
+    } catch (e) {
+      console.warn("[CHECKOUT] API Paiement Yowyob injoignable. Utilisation de la simulation Stripe.");
+    }
+
+    return Response.json({ success: true, stripeCheckoutUrl, data: ordersCreated });
   } catch (error: any) {
     console.error('[CHECKOUT API ERROR]', error);
     return Response.json({ success: false, message: error.message }, { status: 400 });

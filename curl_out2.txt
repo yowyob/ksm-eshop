@@ -1,0 +1,76 @@
+Note: Unnecessary use of -X or --request, GET is already inferred.
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0* Host kernel-core.yowyob.com:443 was resolved.
+* IPv6: (none)
+* IPv4: 173.212.216.20
+*   Trying 173.212.216.20:443...
+* Connected to kernel-core.yowyob.com (173.212.216.20) port 443
+* ALPN: curl offers h2,http/1.1
+* (304) (OUT), TLS handshake, Client hello (1):
+} [327 bytes data]
+*  CAfile: /etc/ssl/cert.pem
+*  CApath: none
+* (304) (IN), TLS handshake, Server hello (2):
+{ [122 bytes data]
+* (304) (IN), TLS handshake, Unknown (8):
+{ [19 bytes data]
+* (304) (IN), TLS handshake, Certificate (11):
+{ [4346 bytes data]
+* (304) (IN), TLS handshake, CERT verify (15):
+{ [520 bytes data]
+* (304) (IN), TLS handshake, Finished (20):
+{ [36 bytes data]
+* (304) (OUT), TLS handshake, Finished (20):
+} [36 bytes data]
+* SSL connection using TLSv1.3 / AEAD-CHACHA20-POLY1305-SHA256 / [blank] / UNDEF
+* ALPN: server accepted h2
+* Server certificate:
+*  subject: CN=kernel-core.yowyob.com
+*  start date: Jun 12 21:29:36 2026 GMT
+*  expire date: Sep 10 21:29:35 2026 GMT
+*  subjectAltName: host "kernel-core.yowyob.com" matched cert's "kernel-core.yowyob.com"
+*  issuer: C=US; O=Let's Encrypt; CN=YR1
+*  SSL certificate verify ok.
+* using HTTP/2
+* [HTTP/2] [1] OPENED stream for https://kernel-core.yowyob.com/api/products?organizationId=fac51104-41e7-4760-bdf4-4abd8f0ea059
+* [HTTP/2] [1] [:method: GET]
+* [HTTP/2] [1] [:scheme: https]
+* [HTTP/2] [1] [:authority: kernel-core.yowyob.com]
+* [HTTP/2] [1] [:path: /api/products?organizationId=fac51104-41e7-4760-bdf4-4abd8f0ea059]
+* [HTTP/2] [1] [user-agent: curl/8.7.1]
+* [HTTP/2] [1] [accept: */*]
+* [HTTP/2] [1] [authorization: Bearer eyJraWQiOiJrZXJuZWwtY29yZS1rZXktMSIsImFsZyI6IlJTMjU2In0.eyJwcmluY2lwYWwiOiJhdGVuYW9ybmVsbGFAZ21haWwuY29tIiwic3ViIjoiYXRlbmFvcm5lbGxhQGdtYWlsLmNvbSIsImF1ZCI6Iml3bS1hcGkiLCJpc3MiOiJrZXJuZWwtY29yZSIsInR5cCI6ImF1dGgtc3NvLXNlc3Npb24iLCJjb250ZXh0cyI6W3siY29udGV4dElkIjoiNzBlNjk2MmUtNTdjMy00NmI5LWIwMzctZjdiZmI0MWVmMWUwIiwidGVuYW50SWQiOiIxMTExMTExMS0xMTExLTExMTEtMTExMS0xMTExMTExMTExMTEiLCJ1c2VySWQiOiI4MzY5NzYyYS0yZGZmLTQ1YTktYmVmOS1jNGRiNTNjMGUyODEiLCJhY3RvcklkIjoiMzFiNmQxNzMtNzc1ZS00ZDM1LTlhNTEtYWE3MjJlZDg1MTlmIn1dLCJleHAiOjE3ODM3MjMyOTQsImlhdCI6MTc4MzY5NDQ5NCwianRpIjoiNWYzYzc4NDQtODFmMi00ZDJhLTk1ZTQtNzE3ZjA5YjAwYTNhIn0.Z81CMfLYEiwqhv1McDf_6l1MCFAFjMqs6L6xO4co6lj7UILiekJ0_tUFOlzV5h1_6EOmek6JjGRFNz1cwqcMrfSZpjkoFn0-iNaENILIGKzmDegs9r4NUy0GRHWthOJ0f8O-l4Dz7ycpy9i0E6EnEiRyNYHKvHq6pKtBXJV2l_vypgv5KSuKHCJSK-1AwBZHGqGnUN93VKiZaZ5ZeJTMYqJOeVryekeFlSwBVYMVSO_1niqqQHl8v46nuSvu9pFZQ_lVZCS7jKVEGcuJSDXR1dq1knmOZjE5bCYiV-7lrXugrVLLu5jqDI4vBvL12MidZmcubwb5eTCTsZOYvtDubw]
+* [HTTP/2] [1] [x-client-id: prod-platform-backend]
+* [HTTP/2] [1] [x-api-key: VbWi225xzYPoD8rQ2FRniTAqkylh34XYeWxa9HCU]
+* [HTTP/2] [1] [x-tenant-id: 11111111-1111-1111-1111-111111111111]
+> GET /api/products?organizationId=fac51104-41e7-4760-bdf4-4abd8f0ea059 HTTP/2
+> Host: kernel-core.yowyob.com
+> User-Agent: curl/8.7.1
+> Accept: */*
+> Authorization: Bearer eyJraWQiOiJrZXJuZWwtY29yZS1rZXktMSIsImFsZyI6IlJTMjU2In0.eyJwcmluY2lwYWwiOiJhdGVuYW9ybmVsbGFAZ21haWwuY29tIiwic3ViIjoiYXRlbmFvcm5lbGxhQGdtYWlsLmNvbSIsImF1ZCI6Iml3bS1hcGkiLCJpc3MiOiJrZXJuZWwtY29yZSIsInR5cCI6ImF1dGgtc3NvLXNlc3Npb24iLCJjb250ZXh0cyI6W3siY29udGV4dElkIjoiNzBlNjk2MmUtNTdjMy00NmI5LWIwMzctZjdiZmI0MWVmMWUwIiwidGVuYW50SWQiOiIxMTExMTExMS0xMTExLTExMTEtMTExMS0xMTExMTExMTExMTEiLCJ1c2VySWQiOiI4MzY5NzYyYS0yZGZmLTQ1YTktYmVmOS1jNGRiNTNjMGUyODEiLCJhY3RvcklkIjoiMzFiNmQxNzMtNzc1ZS00ZDM1LTlhNTEtYWE3MjJlZDg1MTlmIn1dLCJleHAiOjE3ODM3MjMyOTQsImlhdCI6MTc4MzY5NDQ5NCwianRpIjoiNWYzYzc4NDQtODFmMi00ZDJhLTk1ZTQtNzE3ZjA5YjAwYTNhIn0.Z81CMfLYEiwqhv1McDf_6l1MCFAFjMqs6L6xO4co6lj7UILiekJ0_tUFOlzV5h1_6EOmek6JjGRFNz1cwqcMrfSZpjkoFn0-iNaENILIGKzmDegs9r4NUy0GRHWthOJ0f8O-l4Dz7ycpy9i0E6EnEiRyNYHKvHq6pKtBXJV2l_vypgv5KSuKHCJSK-1AwBZHGqGnUN93VKiZaZ5ZeJTMYqJOeVryekeFlSwBVYMVSO_1niqqQHl8v46nuSvu9pFZQ_lVZCS7jKVEGcuJSDXR1dq1knmOZjE5bCYiV-7lrXugrVLLu5jqDI4vBvL12MidZmcubwb5eTCTsZOYvtDubw
+> X-Client-Id: prod-platform-backend
+> X-Api-Key: VbWi225xzYPoD8rQ2FRniTAqkylh34XYeWxa9HCU
+> X-Tenant-Id: 11111111-1111-1111-1111-111111111111
+> 
+* Request completely sent off
+< HTTP/2 401 
+< cache-control: no-cache, no-store, max-age=0, must-revalidate
+< expires: 0
+< pragma: no-cache
+< referrer-policy: no-referrer
+< strict-transport-security: max-age=31536000 ; includeSubDomains
+< vary: Origin
+< vary: Access-Control-Request-Method
+< vary: Access-Control-Request-Headers
+< www-authenticate: Basic realm="Realm"
+< x-content-type-options: nosniff
+< x-frame-options: DENY
+< x-request-id: 814733bd-e0ad-4b92-a162-160da5d7d2ae
+< x-xss-protection: 0
+< content-length: 0
+< date: Fri, 10 Jul 2026 14:44:34 GMT
+< 
+{ [0 bytes data]
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+* Connection #0 to host kernel-core.yowyob.com left intact

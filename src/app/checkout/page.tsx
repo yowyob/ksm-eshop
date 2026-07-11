@@ -59,22 +59,17 @@ export default function CheckoutPage() {
       });
       const data = await res.json();
       
-      if (data.success && data.data && data.data.length > 0) {
-         setOrderData({
-            id: data.data.map((o: any) => o.id).join(', '),
-            total: data.data.reduce((sum: number, o: any) => sum + o.total, 0),
-            items: data.data.flatMap((o: any) => o.items)
-         });
-         
-         // Optimistically decrease stock in useProductStore
-         const { decreaseProductStock } = useProductStore.getState();
-         items.forEach(item => {
-           decreaseProductStock(item.productId || item.variantId.replace('v-', ''), item.quantity);
-         });
-
-         setIsProcessing(false);
-         setIsCompleted(true);
-         clearCart();
+      if (data.success && data.stripeCheckoutUrl) {
+         // Rediriger vers l'URL de paiement Stripe (ou fallback local)
+         if (data.stripeCheckoutUrl.startsWith('http')) {
+           window.location.href = data.stripeCheckoutUrl;
+         } else {
+           router.push(data.stripeCheckoutUrl);
+         }
+      } else if (data.success && data.data && data.data.length > 0) {
+         // Sécurité au cas où on n'a pas d'URL (ne devrait pas arriver avec le fallback)
+         const orderIds = data.data.map((o: any) => o.id).join(',');
+         router.push(`/checkout/success?orderIds=${orderIds}`);
       } else {
          console.error(data.message);
          setIsProcessing(false);
@@ -89,74 +84,7 @@ export default function CheckoutPage() {
 
   const inputClasses = "w-full rounded-lg border-2 border-zinc-300 bg-zinc-50 p-3 text-sm font-bold text-zinc-900 focus:border-blue-600 focus:bg-white focus:outline-none transition-all placeholder:text-zinc-400";
 
-  if (isCompleted && orderData) {
-    return (
-      <div className="container mx-auto px-4 py-12 max-w-2xl">
-        <div className="text-center mb-10">
-          <div className="h-20 w-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 border-4 border-green-200">
-            <CheckCircle2 className="h-12 w-12 text-green-600" />
-          </div>
-          <h1 className="text-4xl font-black text-zinc-900 uppercase italic tracking-tighter text-center">Paiement Réussi !</h1>
-          <p className="mt-3 text-lg font-bold text-zinc-600 text-center">Votre commande a été validée via le service ePay.</p>
-        </div>
 
-        <Card className="border-4 border-zinc-900 shadow-2xl overflow-hidden rounded-3xl">
-          <CardHeader className="bg-zinc-900 text-white p-10">
-            <div className="flex justify-between items-center">
-              <div>
-                <CardTitle className="text-3xl font-black italic uppercase text-white">FACTURE</CardTitle>
-                <p className="text-zinc-400 font-bold mt-1 tracking-widest text-sm uppercase">N° {orderData.id}</p>
-              </div>
-              <div className="text-right text-white">
-                <p className="font-black text-xl uppercase italic">KSM eShop</p>
-                <p className="text-xs font-bold text-zinc-400 uppercase tracking-tighter">Douala, Cameroun</p>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="p-10 bg-white">
-            <table className="w-full text-md mb-10">
-              <thead>
-                <tr className="border-b-2 border-zinc-900 text-zinc-500 text-left">
-                  <th className="py-3 font-black uppercase text-xs tracking-widest">Produit</th>
-                  <th className="py-3 font-black uppercase text-xs tracking-widest text-center">Qté</th>
-                  <th className="py-3 font-black uppercase text-xs tracking-widest text-right">Prix</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y-2 divide-zinc-100">
-                {orderData.items.map((item: any) => (
-                  <tr key={item.id} className="font-bold">
-                    <td className="py-5 text-zinc-900">{item.name}</td>
-                    <td className="py-5 text-center text-zinc-600">{item.quantity}</td>
-                    <td className="py-5 text-right text-zinc-900">{formatPrice(item.price * item.quantity)}</td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="border-t-4 border-zinc-900">
-                  <td colSpan={2} className="pt-8 text-2xl font-black uppercase italic tracking-tighter text-zinc-900">Total Payé</td>
-                  <td className="pt-8 text-right text-3xl font-black text-blue-600 tracking-tighter">{formatPrice(orderData.total)}</td>
-                </tr>
-              </tfoot>
-            </table>
-          </CardContent>
-          <CardFooter className="bg-zinc-100 p-8 flex justify-between gap-6">
-            <Button variant="outline" className="flex-1 gap-3 h-14 font-black uppercase text-sm border-2 border-zinc-900 hover:bg-zinc-900 hover:text-white transition-all" onClick={() => window.print()}>
-              <Printer className="h-5 w-5" /> Imprimer
-            </Button>
-            <Button variant="outline" className="flex-1 gap-3 h-14 font-black uppercase text-sm border-2 border-zinc-900 hover:bg-zinc-900 hover:text-white transition-all">
-              <Download className="h-5 w-5" /> PDF
-            </Button>
-          </CardFooter>
-        </Card>
-
-        <div className="mt-12 text-center">
-          <Button onClick={() => router.push(`/`)} className="bg-zinc-900 h-16 px-10 text-lg font-black uppercase italic tracking-tighter">
-            Retourner à l&apos;accueil
-          </Button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="container mx-auto px-4 py-12 max-w-6xl">
@@ -248,7 +176,7 @@ export default function CheckoutPage() {
                 size="lg" 
                 disabled={isProcessing || items.length === 0}
               >
-                {isProcessing ? 'Connexion ePay...' : `Confirmer le Paiement`}
+                {isProcessing ? 'Connexion au paiement...' : `Payer avec Yowyob`}
               </Button>
               <div className="mt-6 flex items-center justify-center gap-2 text-zinc-400">
                 <ShieldCheck className="h-4 w-4" />
