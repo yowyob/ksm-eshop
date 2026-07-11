@@ -35,11 +35,15 @@ jobs:
       - name: Pull + up
         env:
           APP_IMAGE: ${{ steps.img.outputs.image }}
+          KERNEL_X_API_KEY: ${{ secrets.KERNEL_X_API_KEY }}
+          KERNEL_PASSWORD: ${{ secrets.KERNEL_PASSWORD }}
         run: |
           ssh -i ~/.ssh/id_deploy "${{ vars.DEPLOY_USER }}@${{ vars.DEPLOY_HOST }}" "
             set -e
             cd '${{ vars.DEPLOY_DIR }}'
             export APP_IMAGE='${APP_IMAGE}'
+            export KERNEL_X_API_KEY='${KERNEL_X_API_KEY}'
+            export KERNEL_PASSWORD='${KERNEL_PASSWORD}'
             docker pull \"\$APP_IMAGE\"
             docker compose -f docker-compose.prod.yml up -d
             docker compose -f docker-compose.prod.yml ps
