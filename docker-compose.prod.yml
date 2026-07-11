@@ -8,8 +8,13 @@ services:
       NODE_ENV: "production"
       PORT: "3000"
       BACKEND_URL: "https://kernel-core.yowyob.com"
-      KERNEL_X_CLIENT_ID: "ksm-eshop"
-      KERNEL_X_API_KEY: "JzpzLejNvk1a6s73CYrBk7ciFP6qbIG3lXZNWIjP"
+      KERNEL_X_CLIENT_ID: "prod-platform-backend"
+      KERNEL_X_API_KEY: "${KERNEL_X_API_KEY:?KERNEL_X_API_KEY requis (secret CI)}"
+      KERNEL_X_TENANT_ID: "11111111-1111-1111-1111-111111111111"
+      KERNEL_USERNAME: "atenaornella@gmail.com"
+      KERNEL_PASSWORD: "${KERNEL_PASSWORD:?KERNEL_PASSWORD requis (secret CI)}"
+      DEFAULT_ORGANIZATION_ID: "fac51104-41e7-4760-bdf4-4abd8f0ea059"
+      DEFAULT_AGENCY_ID: "wh1_2"
     healthcheck:
       test: ["CMD-SHELL","wget -qO- http://127.0.0.1:3000/ >/dev/null 2>&1 || exit 1"]
       interval: 20s
