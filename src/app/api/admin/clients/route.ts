@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { cookies } from 'next/headers';
 import { backendFetch } from '@/lib/api-client';
+import { getLocalClients, saveLocalClient } from '@/lib/local-db';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -23,11 +24,23 @@ export async function GET(request: NextRequest) {
     }
   });
 
-  if (!result.success && (result.errorCode === '401' || result.message === 'Unauthorized' || result.message === 'Non autorisé.')) {
-    return Response.json(result, { status: 401 });
+  const localClients = getLocalClients(organizationId);
+
+  if (!result.success) {
+    if (result.errorCode === '401' || result.message === 'Unauthorized' || result.message === 'Non autorisé.') {
+      return Response.json(result, { status: 401 });
+    }
+    // Fallback to local
+    return Response.json({ success: true, data: localClients });
   }
 
-  return Response.json(result);
+  // Merge backend and local clients (local override or append)
+  const backendList = Array.isArray(result.data) ? result.data : (result.data?.content || result.data?.data || []);
+  const combined = [...backendList, ...localClients];
+  // Deduplicate by id/code
+  const unique = Array.from(new Map(combined.map(item => [item.id || item.code, item])).values());
+  
+  return Response.json({ success: true, data: unique });
 }
 
 export async function POST(request: NextRequest) {
@@ -51,8 +64,13 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    if (!result.success && (result.errorCode === '401' || result.message === 'Unauthorized' || result.message === 'Non autorisé.')) {
-      return Response.json(result, { status: 401 });
+    if (!result.success) {
+      if (result.errorCode === '401' || result.message === 'Unauthorized' || result.message === 'Non autorisé.') {
+        return Response.json(result, { status: 401 });
+      }
+      // Fallback local
+      saveLocalClient(body);
+      return Response.json({ success: true, message: 'Saved locally (fallback)', data: body });
     }
 
     return Response.json(result);

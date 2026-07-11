@@ -10,6 +10,7 @@ interface CustomerAuthState {
   checkAuth: (organizationId: string) => Promise<boolean>;
   addBankAccount: (account: any) => void;
   setPrimaryBankAccount: (accountId: string) => void;
+  logout: () => void;
 }
 
 export const useCustomerAuthStore = create<CustomerAuthState>()(
@@ -45,10 +46,18 @@ export const useCustomerAuthStore = create<CustomerAuthState>()(
           primary: acc.id === accountId,
         })),
       })),
+      logout: () => {
+        fetch('/api/auth/customer-logout', { method: 'POST' }).catch(console.error);
+        set({ isAuthenticated: false, user: null });
+      },
     }),
     {
       name: 'ksm-customer-auth-storage',
-      partialize: (state) => ({ bankAccounts: state.bankAccounts }),
+      partialize: (state) => ({ 
+        bankAccounts: state.bankAccounts,
+        isAuthenticated: state.isAuthenticated,
+        user: state.user
+      }),
     }
   )
 );

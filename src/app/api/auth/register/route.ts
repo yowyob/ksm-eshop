@@ -11,7 +11,8 @@ export async function POST(request: Request) {
       return Response.json({ success: false, message: 'Tous les champs sont requis' }, { status: 400 });
     }
 
-    const orgId = organizationId || process.env.KERNEL_X_TENANT_ID || "11111111-1111-1111-1111-111111111111";
+    // ALWAYS use global tenant for Actor creation, even if initiated from an org page.
+    const orgId = process.env.KERNEL_X_TENANT_ID || "11111111-1111-1111-1111-111111111111";
 
     // 1. Appel du /sign-up (Kernel Core) pour créer l'ACTOR
     const signUpPayload = {

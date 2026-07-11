@@ -33,7 +33,7 @@ export default function AdminProductsPage() {
     name: '',
     description: '',
     price: '',
-    categoryId: '',
+    categoryCode: '',
     imageUrl: '',
     quantity: '0'
   });
@@ -93,16 +93,13 @@ export default function AdminProductsPage() {
         photo: newProduct.imageUrl,
         imageUrl: newProduct.imageUrl,
         currency: 'FCFA',
-        familyCode: 'STANDARD',
+        familyCode: newProduct.categoryCode || 'STANDARD',
+        categoryCode: newProduct.categoryCode || 'STANDARD',
         variantLabel: 'Standard',
         quantity: parseInt(newProduct.quantity, 10) || 0,
         sku: `SKU-${Date.now()}`,
         status: 'ACTIVE'
       };
-
-      if (newProduct.categoryId && newProduct.categoryId !== 'c1') {
-        payload.categoryId = newProduct.categoryId;
-      }
 
       const res = await fetch('/api/admin/products', {
         method: 'POST',
@@ -114,7 +111,7 @@ export default function AdminProductsPage() {
       if (data.success || res.ok) {
         setIsAddingProduct(false);
         setNewProduct({
-          name: '', description: '', price: '', categoryId: '',
+          name: '', description: '', price: '', categoryCode: '',
           imageUrl: '',
           quantity: '0'
         });
@@ -135,7 +132,7 @@ export default function AdminProductsPage() {
       name: p.name,
       description: p.description || '',
       price: (p.unitPrice !== undefined ? p.unitPrice : (p.price || 0)).toString(),
-      categoryId: p.categoryId || '',
+      categoryCode: p.categoryCode || p.familyCode || p.categoryId || '',
       imageUrl: p.photo || p.imageUrl || p.image || p.picture || '',
       quantity: p.quantity !== undefined ? p.quantity : 0,
       status: p.status || 'ACTIVE'
@@ -160,15 +157,12 @@ export default function AdminProductsPage() {
         photo: editProduct.imageUrl,
         status: editProduct.status,
         currency: 'FCFA',
-        familyCode: 'STANDARD',
+        familyCode: editProduct.categoryCode || 'STANDARD',
+        categoryCode: editProduct.categoryCode || 'STANDARD',
         variantLabel: 'Standard',
         quantity: parseInt(editProduct.quantity, 10) || 0,
         sku: editProduct.name.substring(0, 5).toUpperCase() + '-' + Date.now().toString().substring(7)
       };
-
-      if (editProduct.categoryId && editProduct.categoryId !== 'c1') {
-        payload.categoryId = editProduct.categoryId;
-      }
 
       const res = await fetch(`/api/admin/products/${editProduct.id}`, {
         method: 'PATCH',
@@ -290,6 +284,16 @@ export default function AdminProductsPage() {
                 />
               </div>
 
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Catégorie</label>
+                <input 
+                  className="w-full h-11 bg-white border-2 border-zinc-200 rounded-xl px-4 text-sm font-bold focus:border-blue-600 outline-none transition-colors"
+                  placeholder="Ex: ELECTRONICS"
+                  value={newProduct.categoryCode}
+                  onChange={(e) => setNewProduct({...newProduct, categoryCode: e.target.value})}
+                />
+              </div>
+
               <div className="space-y-1 lg:col-span-3">
                 <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Image URL</label>
                 <input 
@@ -373,6 +377,16 @@ export default function AdminProductsPage() {
                   className="w-full h-11 bg-white border-2 border-zinc-200 rounded-xl px-4 text-sm font-bold focus:border-emerald-600 outline-none transition-colors"
                   value={editProduct.quantity}
                   onChange={(e) => setEditProduct({...editProduct, quantity: e.target.value})}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Catégorie</label>
+                <input 
+                  className="w-full h-11 bg-white border-2 border-zinc-200 rounded-xl px-4 text-sm font-bold focus:border-emerald-600 outline-none transition-colors"
+                  placeholder="Ex: ELECTRONICS"
+                  value={editProduct.categoryCode}
+                  onChange={(e) => setEditProduct({...editProduct, categoryCode: e.target.value})}
                 />
               </div>
 
@@ -463,6 +477,11 @@ export default function AdminProductsPage() {
                         <span className="bg-zinc-100 text-zinc-600 text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md font-mono">
                           ID: {p.id.slice(0,8)}...
                         </span>
+                        {(p.categoryCode || p.familyCode) && (
+                          <span className="bg-blue-100 text-blue-700 text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md">
+                            Catégorie: {p.categoryCode || p.familyCode}
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-4 w-full sm:w-auto mt-4 sm:mt-0 border-t sm:border-t-0 border-zinc-100 pt-4 sm:pt-0">

@@ -28,9 +28,9 @@ export default function AddToCartButton({ product, selectedVariant, price, stock
 
   const handleAdd = () => {
     if (!isAuthenticated) {
-      // Redirect to login page and pass the current page URL for redirecting back
+      // Redirect to global login page and pass the current page URL for redirecting back
       const currentPath = window.location.pathname;
-      router.push(`/${tenantSlug}/login?redirect=${encodeURIComponent(currentPath)}`);
+      router.push(`/login?redirect=${encodeURIComponent(currentPath)}`);
       return;
     }
 
@@ -39,7 +39,8 @@ export default function AddToCartButton({ product, selectedVariant, price, stock
       variantId: selectedVariant.id,
       name: `${product.name}${attributeSuffix}`,
       price: price,
-      imageUrl: product.imageUrl
+      imageUrl: product.imageUrl,
+      tenantId: tenantSlug
     });
     setIsAdded(true);
     setTimeout(() => setIsAdded(false), 2000);
@@ -47,10 +48,9 @@ export default function AddToCartButton({ product, selectedVariant, price, stock
 
   return (
     <Button 
-      className="w-full h-14 text-lg gap-2 transition-all font-bold" 
+      className={`w-full h-14 text-lg gap-2 transition-all font-bold ${isAdded ? 'bg-blue-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`} 
       disabled={stock === 0}
       onClick={handleAdd}
-      variant={isAdded ? 'outline' : 'primary'}
     >
       <ShoppingCart className="h-5 w-5" />
       {isAdded ? 'Ajouté au panier !' : 'Ajouter au panier'}

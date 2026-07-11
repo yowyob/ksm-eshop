@@ -9,14 +9,16 @@ export interface CartItem {
   price: number;
   imageUrl: string;
   quantity: number;
+  tenantId?: string;
 }
 
 interface AddItemParams {
   productId: string;
-  variantId: string;
+  variantId?: string;
   name: string;
   price: number;
-  imageUrl: string;
+  imageUrl?: string;
+  tenantId?: string;
 }
 
 interface CartState {
@@ -33,11 +35,12 @@ export const useCartStore = create<CartState>()(
       items: [],
       addItem: (params) => {
         set((state) => {
-          const existingItem = state.items.find((item) => item.id === params.variantId);
+          const vId = params.variantId || params.productId;
+          const existingItem = state.items.find((item) => item.id === vId);
           if (existingItem) {
             return {
               items: state.items.map((item) =>
-                item.id === params.variantId
+                item.id === vId
                   ? { ...item, quantity: item.quantity + 1 }
                   : item
               ),
@@ -47,13 +50,14 @@ export const useCartStore = create<CartState>()(
             items: [
               ...state.items,
               {
-                id: params.variantId,
-                variantId: params.variantId,
+                id: vId,
+                variantId: vId,
                 productId: params.productId,
                 name: params.name,
                 price: params.price,
-                imageUrl: params.imageUrl,
-                quantity: 1
+                imageUrl: params.imageUrl || '',
+                quantity: 1,
+                tenantId: params.tenantId
               }
             ]
           };

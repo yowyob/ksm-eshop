@@ -30,7 +30,6 @@ export default function ShopNavbar({ tenant }: ShopNavbarProps) {
 
   useEffect(() => {
     setIsMounted(true); // eslint-disable-line react-hooks/set-state-in-effect
-    checkAuth(tenant.id);
   }, [tenant.id]);
 
   const handleLogout = async () => {
@@ -40,7 +39,7 @@ export default function ShopNavbar({ tenant }: ShopNavbarProps) {
       setAuthenticated(false, null);
       // Vider le panier au moment de la déconnexion
       useCartStore.getState().clearCart();
-      router.push(`/${tenant.slug}/login`);
+      router.push(`/login`);
     } catch (error) {
       console.error(error);
     } finally {
@@ -96,10 +95,10 @@ export default function ShopNavbar({ tenant }: ShopNavbarProps) {
           </div>
           
           {/* Cart Icon */}
-          <Link href={`/${tenant.slug}/cart`}>
+          <Link href={`/cart`}>
             <Button variant="ghost" size="icon" className="relative h-12 w-12 hover:bg-zinc-100 border-2 border-transparent hover:border-zinc-200">
               <ShoppingCart className="h-6 w-6 text-zinc-900" />
-              {isMounted && totalItems > 0 && (
+              {isMounted && !!user && totalItems > 0 && (
                 <span className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-[10px] font-black text-white shadow-lg border-2 border-white">
                   {totalItems}
                 </span>
@@ -148,12 +147,12 @@ export default function ShopNavbar({ tenant }: ShopNavbarProps) {
             </div>
           ) : (
             <div className="hidden sm:flex items-center gap-2">
-              <Link href={`/${tenant.slug}/login`}>
+              <Link href={`/login`}>
                 <Button variant="ghost" className="font-black text-zinc-700 hover:text-zinc-900 hover:bg-zinc-100 border-2 border-transparent text-xs uppercase tracking-wider">
                   Connexion
                 </Button>
               </Link>
-              <Link href={`/${tenant.slug}/signup`}>
+              <Link href={`/signup`}>
                 <Button className="font-black bg-zinc-900 text-white hover:bg-zinc-800 shadow-lg text-xs uppercase tracking-wider rounded-xl">
                   S'inscrire
                 </Button>
@@ -164,7 +163,7 @@ export default function ShopNavbar({ tenant }: ShopNavbarProps) {
           {/* Mobile login icon fallback */}
           {!user && (
             <div className="sm:hidden flex items-center">
-              <Link href={`/${tenant.slug}/login`}>
+              <Link href={`/login`}>
                 <Button variant="ghost" size="icon" className="h-12 w-12 hover:bg-zinc-100 border-2 border-transparent hover:border-zinc-200">
                   <User className="h-6 w-6 text-zinc-900" />
                 </Button>

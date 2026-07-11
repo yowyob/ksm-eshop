@@ -8,7 +8,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { email, code, organizationId } = body;
 
-    const orgId = organizationId || process.env.KERNEL_X_TENANT_ID || "11111111-1111-1111-1111-111111111111";
+    // ALWAYS use global tenant for Authentication, to avoid 429 Anti-bruteforce locks when guessing.
+    const orgId = process.env.KERNEL_X_TENANT_ID || "11111111-1111-1111-1111-111111111111";
 
     const KERNEL_BASE = process.env.BACKEND_URL || 'https://kernel-core.yowyob.com';
     const authRes = await fetch(`${KERNEL_BASE}/api/auth/login`, {
@@ -36,6 +37,11 @@ export async function POST(request: NextRequest) {
       // If it's EMAIL_NOT_VERIFIED, we should tell the user clearly
       if (errorCode === 'EMAIL_NOT_VERIFIED') {
         errorMsg = "Votre adresse email n'est pas encore vérifiée. Veuillez consulter votre boîte de réception.";
+      }
+      
+      // If throttled, give a clearer message
+      if (errorCode === 'AUTH_THROTTLED_PRINCIPAL') {
+        errorMsg = "Trop de tentatives échouées. Veuillez réessayer plus tard.";
       }
 
       return NextResponse.json({ success: false, message: errorMsg, errorCode }, { status: 401 });
@@ -77,11 +83,12 @@ export async function POST(request: NextRequest) {
 
     // We create the third-party client profile asynchronously/synchronously
     // to ensure the user has a client profile in the organization
+    const targetOrgIdForThirdParty = organizationId || orgId;
     try {
       const thirdPartyResult = await backendFetch('/api/third-parties', {
         method: 'POST',
         body: JSON.stringify({
-          organizationId: orgId,
+          organizationId: targetOrgIdForThirdParty,
           partyType: "ACTOR",
           partyId: customer.partyId,
           code: email,
@@ -114,7 +121,7 @@ export async function POST(request: NextRequest) {
         }),
         headers: {
           'Content-Type': 'application/json',
-          'X-Organization-Id': orgId
+          'X-Organization-Id': targetOrgIdForThirdParty
         }
       });
       if (thirdPartyResult.success) {

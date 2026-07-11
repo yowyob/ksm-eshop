@@ -8,6 +8,7 @@ import { Building2, ArrowRight } from 'lucide-react';
 
 import { useCustomerAuthStore } from '@/store/useCustomerAuthStore';
 import { useCartStore } from '@/store/useCartStore';
+import { useAuthStore } from '@/store/useAuthStore';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -18,6 +19,7 @@ export default function LoginPage() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -29,26 +31,42 @@ export default function LoginPage() {
     const code = formData.get('code') as string;
 
     try {
-      const res = await fetch('/api/auth/customer-login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, code })
-      });
-      const data = await res.json();
-      
-      if (data.success || res.ok) {
-        // Mettre à jour le store d'authentification immédiatement
-        if (data.data) {
-          useCustomerAuthStore.getState().setAuthenticated(true, data.data);
-          // Initialiser le panier du client à 0 (vide) lors de sa connexion
-          useCartStore.getState().clearCart();
-        }
+      if (isAdmin) {
+        const res = await fetch('/api/admin/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ principal: email, password: code })
+        });
+        const data = await res.json();
         
-        // Rediriger vers l'url de redirection ou l'accueil
-        const redirectUrl = searchParams.get('redirect') || `/`;
-        router.push(redirectUrl);
+        if (!res.ok || !data.success) {
+          setError(data.message || 'Identifiants incorrects.');
+        } else {
+          useAuthStore.getState().login('Gérant (Admin)');
+          router.push('/admin/organizations');
+        }
       } else {
-        setError(data.message || 'Identifiants invalides');
+        const res = await fetch('/api/auth/customer-login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, code })
+        });
+        const data = await res.json();
+        
+        if (data.success || res.ok) {
+          // Mettre à jour le store d'authentification immédiatement
+          if (data.data) {
+            useCustomerAuthStore.getState().setAuthenticated(true, data.data);
+            // Initialiser le panier du client à 0 (vide) lors de sa connexion
+            useCartStore.getState().clearCart();
+          }
+          
+          // Rediriger vers l'url de redirection ou l'accueil
+          const redirectUrl = searchParams.get('redirect') || `/`;
+          router.push(redirectUrl);
+        } else {
+          setError(data.message || 'Identifiants invalides');
+        }
       }
     } catch (err: any) {
       setError('Erreur de connexion au serveur');
@@ -135,11 +153,24 @@ export default function LoginPage() {
               </label>
             </div>
 
-            <div className="text-sm">
-              <a href="#" className="font-bold text-blue-600 hover:text-blue-500 transition-colors">
-                Mot de passe oublié ?
-              </a>
+            <div className="flex items-center">
+              <input
+                id="is-admin"
+                type="checkbox"
+                checked={isAdmin}
+                onChange={(e) => setIsAdmin(e.target.checked)}
+                className="h-4 w-4 text-amber-600 focus:ring-amber-500 border-zinc-300 rounded"
+              />
+              <label htmlFor="is-admin" className="ml-2 block text-sm font-bold text-amber-700">
+                Connexion Admin
+              </label>
             </div>
+          </div>
+          
+          <div className="text-right text-sm">
+            <a href="#" className="font-bold text-blue-600 hover:text-blue-500 transition-colors">
+              Mot de passe oublié ?
+            </a>
           </div>
 
           <div>

@@ -129,7 +129,7 @@ export default function ShopHomePage() {
             <div className="max-w-2xl">
               <div className="flex items-center gap-3 mb-4">
                 <span className="bg-zinc-900 text-white text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest flex items-center gap-1.5">
-                  <Building2 className="h-3 w-3 text-blue-400" /> boutique Officielle
+                  <Building2 className="h-3 w-3 text-blue-400" /> {orgName}
                 </span>
                 <div className="h-1 w-12 bg-blue-600 rounded-full" />
               </div>

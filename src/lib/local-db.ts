@@ -3,6 +3,7 @@ import path from 'path';
 
 const DATA_DIR = path.join(process.cwd(), '.data');
 const ORDERS_FILE = path.join(DATA_DIR, 'orders.json');
+const CLIENTS_FILE = path.join(DATA_DIR, 'clients.json');
 
 // Ensure directory and file exist
 const initDb = () => {
@@ -12,6 +13,9 @@ const initDb = () => {
     }
     if (!fs.existsSync(ORDERS_FILE)) {
       fs.writeFileSync(ORDERS_FILE, JSON.stringify([]));
+    }
+    if (!fs.existsSync(CLIENTS_FILE)) {
+      fs.writeFileSync(CLIENTS_FILE, JSON.stringify([]));
     }
   } catch (error) {
     console.error('[LOCAL-DB] Failed to initialize local DB:', error);
@@ -106,5 +110,36 @@ export const getLocalReservedQuantities = (organizationId?: string): Record<stri
     return reserved;
   } catch (error) {
     return {};
+  }
+};
+
+export const getLocalClients = (organizationId?: string): any[] => {
+  try {
+    initDb();
+    const data = fs.readFileSync(CLIENTS_FILE, 'utf-8');
+    let clients = JSON.parse(data || '[]');
+    if (organizationId) {
+      clients = clients.filter((c: any) => c.organizationId === organizationId || c.tenantId === organizationId);
+    }
+    return clients;
+  } catch (error) {
+    console.error('[LOCAL-DB] Error reading clients:', error);
+    return [];
+  }
+};
+
+export const saveLocalClient = (client: any): boolean => {
+  try {
+    initDb();
+    const clients = getLocalClients();
+    if (!client.id) client.id = client.code || `C-${Math.random().toString(36).substring(2, 9)}`;
+    if (!client.partyId) client.partyId = client.id;
+    clients.push(client);
+    fs.writeFileSync(CLIENTS_FILE, JSON.stringify(clients, null, 2));
+    console.log('[LOCAL-DB] Client saved successfully:', client.name);
+    return true;
+  } catch (error) {
+    console.error('[LOCAL-DB] Error saving client:', error);
+    return false;
   }
 };
