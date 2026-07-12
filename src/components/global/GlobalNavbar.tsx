@@ -75,7 +75,7 @@ export function GlobalNavbar({
           <div className="h-8 w-[2px] bg-zinc-200 hidden lg:block" />
           
           {/* Organizations Dropdown */}
-          <div className="relative hidden lg:block">
+          <div className="relative">
             <button 
               onClick={() => { setShowOrgMenu(!showOrgMenu); setShowUserMenu(false); setShowLangMenu(false); }}
               className="flex items-center gap-2 group hover:text-blue-600 transition-colors"
@@ -253,17 +253,28 @@ export function GlobalNavbar({
       
       {/* Mobile Search & Categories Row */}
       <div className="md:hidden border-t border-zinc-100 px-4 py-3 bg-zinc-50">
-        <form onSubmit={handleSearch} className="flex w-full rounded-full overflow-hidden border-2 border-zinc-200 focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-100 transition-all bg-white">
-          <input 
-            type="text" 
-            placeholder={lang === 'FR' ? "Rechercher..." : "Search..."}
-            className="flex-1 px-4 py-2 text-zinc-900 outline-none text-sm font-bold bg-transparent"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-          <button type="submit" className="bg-blue-600 px-4 py-2 text-white flex items-center justify-center">
-            <Search className="h-4 w-4" />
-          </button>
+        <form onSubmit={handleSearch} className="flex flex-col gap-2 w-full">
+          <select 
+            className="w-full bg-white text-zinc-700 text-xs font-bold px-3 py-2.5 border-2 border-zinc-200 rounded-xl outline-none focus:border-blue-600 cursor-pointer"
+            value={selectedCategory || 'all'}
+            onChange={(e) => onCategorySelect(e.target.value === 'all' ? null : e.target.value)}
+          >
+            {finalCategories.map(cat => (
+              <option key={cat.id} value={cat.id}>{cat.label}</option>
+            ))}
+          </select>
+          <div className="flex w-full rounded-full overflow-hidden border-2 border-zinc-200 focus-within:border-blue-600 focus-within:ring-2 focus-within:ring-blue-100 transition-all bg-white">
+            <input 
+              type="text" 
+              placeholder={lang === 'FR' ? "Rechercher..." : "Search..."}
+              className="flex-1 px-4 py-2 text-zinc-900 outline-none text-sm font-bold bg-transparent"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            <button type="submit" className="bg-blue-600 px-4 py-2 text-white flex items-center justify-center">
+              <Search className="h-4 w-4" />
+            </button>
+          </div>
         </form>
       </div>
     </header>
