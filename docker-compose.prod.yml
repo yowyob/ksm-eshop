@@ -7,7 +7,7 @@ services:
     environment:
       NODE_ENV: "production"
       PORT: "3000"
-      BACKEND_URL: "https://kernel-core.yowyob.com"
+      BACKEND_URL: "https://kernel-core.yowyob.com/kernel-api"
       KERNEL_X_CLIENT_ID: "prod-platform-backend"
       KERNEL_X_API_KEY: "${KERNEL_X_API_KEY:?KERNEL_X_API_KEY requis (secret CI)}"
       KERNEL_X_TENANT_ID: "11111111-1111-1111-1111-111111111111"
