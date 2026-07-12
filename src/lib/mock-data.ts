@@ -22,7 +22,7 @@ export const TENANTS: Tenant[] = [
     id: 't1',
     name: 'Boulangerie Délices',
     slug: 'boulangerie-delices',
-    description: 'Le meilleur pain artisanal de Douala, cuit au feu de bois.',
+    description: 'Le meilleur pain artisanal de Yaoundé, cuit au feu de bois.',
     themeColor: '#f59e0b',
   },
   {
@@ -327,7 +327,7 @@ export const WAREHOUSES: Warehouse[] = [
   { id: 'wh1_2', tenantId: 't1', organizationId: 'o1', name: 'Boutique Bonapriso', code: 'WH-BONA', type: 'RETAIL' },
 
   // For tenant 2 (Tech Horizon)
-  { id: 'wh2_1', tenantId: 't2', organizationId: 'o2', name: 'Dépôt Central Douala', code: 'WH-DLA-CTR', type: 'WAREHOUSE' },
+  { id: 'wh2_1', tenantId: 't2', organizationId: 'o2', name: 'Dépôt Central Yaoundé', code: 'WH-YDE-CTR', type: 'WAREHOUSE' },
   { id: 'wh2_2', tenantId: 't2', organizationId: 'o2', name: 'Showroom Yaoundé', code: 'WH-YDE-SHW', type: 'RETAIL' },
 
   // For tenant 3 (Pharmacie du Soleil)

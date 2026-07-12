@@ -53,10 +53,13 @@ export async function POST(request: NextRequest) {
 
     console.log('[DEBUG POST BON-COMMANDE] Result:', result);
 
+    // Toujours sauvegarder localement pour que getLocalReservedQuantities fonctionne sur les données mockées
+    console.log('[API Order] Saving to local db for local stock calculation.');
+    saveLocalOrder(body);
+
     if (!result.success) {
       // Fallback on failure (dev mode)
-      console.log('[API Fallback] Kernel rejected order. Saving to local db.');
-      saveLocalOrder(body);
+      console.log('[API Fallback] Kernel rejected order.');
       result.success = true; // Pretend it succeeded
       result.message = 'Saved locally via fallback';
     }

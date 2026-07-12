@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { backendFetch } from '@/lib/api-client';
 import { getLocalReservedQuantities } from '@/lib/local-db';
+import { isOrgSuspended } from '@/lib/suspended-orgs';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,6 +10,14 @@ export async function GET(request: NextRequest) {
   const organizationId = searchParams.get('organizationId') || process.env.DEFAULT_ORGANIZATION_ID || 'o1';
   const familyCode = searchParams.get('familyCode') || undefined;
   const status = searchParams.get('status') || undefined;
+
+  // Si l'organisation spécifique est suspendue, on ne retourne aucun produit
+  if (organizationId !== 'ALL' && isOrgSuspended(organizationId)) {
+    return Response.json({
+      success: true,
+      data: []
+    });
+  }
 
   const mockProducts = [
     {
@@ -22,8 +31,12 @@ export async function GET(request: NextRequest) {
       status: 'ACTIVE',
       photo: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&q=80&w=600',
       unitPrice: 45000,
+      wholesalePrice: 40000,
       currency: 'FCFA',
-      tenantName: 'KSM GADGETS'
+      tenantName: 'KSM GADGETS',
+      options: [
+        { name: 'Couleur', values: ['Noir', 'Blanc', 'Argent'] }
+      ]
     },
     {
       id: 'demo-prod-2',
@@ -36,8 +49,13 @@ export async function GET(request: NextRequest) {
       status: 'ACTIVE',
       photo: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=600',
       unitPrice: 25000,
+      wholesalePrice: 22000,
       currency: 'FCFA',
-      tenantName: 'KSM GADGETS'
+      tenantName: 'KSM GADGETS',
+      options: [
+        { name: 'Couleur du bracelet', values: ['Noir', 'Bleu', 'Rose'] },
+        { name: 'Taille', values: ['S', 'L'] }
+      ]
     },
     {
       id: 'demo-prod-3',
@@ -50,8 +68,12 @@ export async function GET(request: NextRequest) {
       status: 'ACTIVE',
       photo: 'https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?auto=format&fit=crop&q=80&w=600',
       unitPrice: 18000,
+      wholesalePrice: 15000,
       currency: 'FCFA',
-      tenantName: 'KSM SARL'
+      tenantName: 'KSM SARL',
+      options: [
+        { name: 'Modèle', values: ['Standard', 'Pro'] }
+      ]
     },
     {
       id: 'demo-prod-4',
@@ -64,8 +86,13 @@ export async function GET(request: NextRequest) {
       status: 'ACTIVE',
       photo: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=600',
       unitPrice: 35000,
+      wholesalePrice: 30000,
       currency: 'FCFA',
-      tenantName: 'KSM FASHION'
+      tenantName: 'KSM FASHION',
+      options: [
+        { name: 'Pointure', values: ['40', '41', '42', '43'] },
+        { name: 'Couleur', values: ['Rouge', 'Noir/Blanc'] }
+      ]
     },
     {
       id: 'demo-prod-5',
@@ -78,8 +105,12 @@ export async function GET(request: NextRequest) {
       status: 'ACTIVE',
       photo: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&q=80&w=600',
       unitPrice: 22000,
+      wholesalePrice: 18000,
       currency: 'FCFA',
-      tenantName: 'KSM LUGGAGE'
+      tenantName: 'KSM LUGGAGE',
+      options: [
+        { name: 'Couleur', values: ['Noir', 'Gris', 'Bleu Marine'] }
+      ]
     },
     {
       id: 'demo-prod-6',
@@ -92,8 +123,10 @@ export async function GET(request: NextRequest) {
       status: 'ACTIVE',
       photo: 'https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?auto=format&fit=crop&q=80&w=600',
       unitPrice: 195000,
+      wholesalePrice: 180000,
       currency: 'FCFA',
-      tenantName: 'KSM SARL'
+      tenantName: 'KSM SARL',
+      options: []
     }
   ];
 
@@ -109,8 +142,11 @@ export async function GET(request: NextRequest) {
       else if (raw && typeof raw === 'object' && raw.id) orgs = [raw];
     }
 
+    // Filtrer les organisations suspendues pour ne pas afficher leurs produits
+    orgs = orgs.filter((org: any) => !isOrgSuspended(org.id));
+
     if (orgs.length === 0) {
-      return Response.json({ success: true, data: mockProducts }); // fallback if no orgs
+      return Response.json({ success: true, data: [] }); // plus de fallback avec les mocks des orgs suspendues
     }
 
     // Fetch products for each organization
@@ -185,7 +221,7 @@ export async function GET(request: NextRequest) {
     const orgMockProducts = mockProducts.filter(p => p.organizationId === organizationId || organizationId === 'ALL');
     const updatedMock = orgMockProducts.map(p => {
        const deduction = reserved[p.id] || 0;
-       return { ...p, quantity: Math.max(0, (p.quantity || 0) - deduction) };
+       return { ...p, quantity: Math.max(0, ((p as any).quantity || 0) - deduction) };
     });
     return Response.json({
       success: true,

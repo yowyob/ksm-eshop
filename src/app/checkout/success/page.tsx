@@ -37,7 +37,7 @@ function SuccessContent() {
             </div>
             <div className="text-right text-white">
               <p className="font-black text-xl uppercase italic">KSM eShop</p>
-              <p className="text-xs font-bold text-zinc-400 uppercase tracking-tighter">Douala, Cameroun</p>
+              <p className="text-xs font-bold text-zinc-400 uppercase tracking-tighter">Yaoundé, Cameroun</p>
             </div>
           </div>
         </CardHeader>

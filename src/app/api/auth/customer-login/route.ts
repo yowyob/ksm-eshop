@@ -81,57 +81,15 @@ export async function POST(request: NextRequest) {
       maxAge: Number(expiresIn),
     });
 
-    // We create the third-party client profile asynchronously/synchronously
-    // to ensure the user has a client profile in the organization
-    const targetOrgIdForThirdParty = organizationId || orgId;
+    // Le profil tiers commercial est créé au moment du paiement, pas à la connexion.
+    // Cela suit la logique métier: un visiteur devient client officiel en payant.
+
+    // Save to local DB to retroactively count existing users who log in
     try {
-      const thirdPartyResult = await backendFetch('/api/third-parties', {
-        method: 'POST',
-        body: JSON.stringify({
-          organizationId: targetOrgIdForThirdParty,
-          partyType: "ACTOR",
-          partyId: customer.partyId,
-          code: email,
-          name: customer.name,
-          displayName: customer.name,
-          accountingAccount: email,
-          segment: "CUSTOMER",
-          qualificationScore: 0,
-          enabled: true,
-          prospect: true,
-          type: "INDIVIDUAL",
-          legalForm: "PERSON",
-          uniqueIdentificationNumber: email,
-          tradeRegistrationNumber: "",
-          acronym: "",
-          longName: customer.name,
-          accountingAccountNumbers: [email],
-          authorizedPaymentMethods: ["CASH", "BANK_TRANSFER"],
-          authorizedCreditLimit: 0,
-          maxDiscountRate: 0,
-          vatSubject: true,
-          operationsBalance: 0,
-          openingBalance: 0,
-          payTermNumber: 0,
-          payTermType: "DAYS",
-          thirdPartyFamily: "CLIENTS",
-          classification: "STANDARD",
-          taxNumber: "",
-          roles: ["CUSTOMER"]
-        }),
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Organization-Id': targetOrgIdForThirdParty
-        }
-      });
-      if (thirdPartyResult.success) {
-        console.log('[Login] Profil ThirdParty créé/vérifié avec succès pour:', customer.partyId);
-      } else {
-        // Ignorer l'erreur si le profil existe déjà
-        console.log('[Login] Erreur (ou déjà existant) lors de la création du ThirdParty:', thirdPartyResult.message);
-      }
-    } catch (err) {
-      console.error('[Login] Erreur création ThirdParty:', err);
+      const { saveLocalUser } = require('@/lib/local-db');
+      saveLocalUser({ name: customer.name, email: customer.email });
+    } catch (e) {
+      console.error('[Login] Erreur sauvegarde locale user:', e);
     }
 
     // We return the customer profile

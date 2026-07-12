@@ -143,3 +143,31 @@ export const saveLocalClient = (client: any): boolean => {
     return false;
   }
 };
+
+const USERS_FILE = path.join(DATA_DIR, 'users.json');
+
+export const getLocalUsers = (): any[] => {
+  try {
+    if (!fs.existsSync(USERS_FILE)) {
+      return [];
+    }
+    const data = fs.readFileSync(USERS_FILE, 'utf-8');
+    return JSON.parse(data || '[]');
+  } catch (error) {
+    return [];
+  }
+};
+
+export const saveLocalUser = (user: any): boolean => {
+  try {
+    const users = getLocalUsers();
+    // Check for duplicates
+    if (!users.find(u => u.email === user.email)) {
+      users.push({ ...user, registeredAt: new Date().toISOString() });
+      fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
+    }
+    return true;
+  } catch (error) {
+    return false;
+  }
+};

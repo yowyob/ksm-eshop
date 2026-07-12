@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { backendFetch } from '@/lib/api-client';
+import { isOrgSuspended } from '@/lib/suspended-orgs';
 
 /**
  * GET /api/organizations/[orgId]/products
@@ -10,6 +11,15 @@ export async function GET(
   { params }: { params: Promise<{ orgId: string }> }
 ) {
   const { orgId } = await params;
+
+  // Si l'organisation est suspendue, on ne retourne pas ses produits
+  if (isOrgSuspended(orgId)) {
+    return Response.json({
+      success: true,
+      data: []
+    });
+  }
+
   const searchParams = request.nextUrl.searchParams;
   const status = searchParams.get('status') || undefined;
   const familyCode = searchParams.get('familyCode') || undefined;

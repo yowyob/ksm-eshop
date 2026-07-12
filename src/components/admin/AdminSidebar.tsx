@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { Tenant } from '@/lib/types';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -12,7 +13,8 @@ import {
   LogOut,
   Boxes,
   Building2,
-  Users
+  Users,
+  ShieldCheck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -23,25 +25,37 @@ interface AdminSidebarProps {
 }
 
 export default function AdminSidebar({ tenant }: AdminSidebarProps) {
- const pathname = usePathname();
- const { logout } = useAuthStore();
- const router = useRouter();
+  const pathname = usePathname();
+  const { user, logout } = useAuthStore();
+  const router = useRouter();
+  const [isMounted, setIsMounted] = useState(false);
 
- const handleLogout = async () => {
-   await fetch('/api/admin/auth/logout', { method: 'POST' });
-   logout();
-   router.push('/admin/login');
- };
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
- const navItems = [
-   { label: 'Tableau de bord', icon: LayoutDashboard, href: `/admin/${tenant.slug}` },
-   { label: 'Organisations', icon: Building2, href: `/admin/organizations` },
-   { label: 'Clients', icon: Users, href: `/admin/${tenant.slug}/clients` },
-   { label: 'Produits', icon: Package, href: `/admin/${tenant.slug}/products` },
-   { label: 'Stocks & Entrepôts', icon: Boxes, href: `/admin/${tenant.slug}/inventory` },
-   { label: 'Commandes', icon: ShoppingCart, href: `/admin/${tenant.slug}/orders` },
-   { label: 'Paramètres', icon: Settings, href: `/admin/${tenant.slug}/settings` },
- ];
+  const isSuperAdmin = isMounted && !!user;
+
+  const handleLogout = async () => {
+    await fetch('/api/admin/auth/logout', { method: 'POST' });
+    logout();
+    router.push('/admin/login');
+  };
+
+  const navItems = [
+    { label: 'Tableau de bord', icon: LayoutDashboard, href: `/admin/${tenant.slug}` },
+    { label: 'Organisations', icon: Building2, href: `/admin/organizations` },
+    { label: 'Clients', icon: Users, href: `/admin/${tenant.slug}/clients` },
+    { label: 'Produits', icon: Package, href: `/admin/${tenant.slug}/products` },
+    { label: 'Stocks & Entrepôts', icon: Boxes, href: `/admin/${tenant.slug}/inventory` },
+    { label: 'Commandes', icon: ShoppingCart, href: `/admin/${tenant.slug}/orders` },
+    { label: 'Paramètres', icon: Settings, href: `/admin/${tenant.slug}/settings` },
+    { label: 'Abonnement', icon: Settings, href: `/admin/${tenant.slug}/subscription` },
+  ];
+
+  if (user?.name?.toLowerCase().trim() === 'atenaornella@gmail.com') {
+    navItems.push({ label: 'Super Admin', icon: ShieldCheck, href: `/admin/super-admin` });
+  }
 
  return (
  <aside className="w-64 border-r bg-white flex flex-col shadow-sm">

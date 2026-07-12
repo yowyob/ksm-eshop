@@ -1,8 +1,17 @@
 import { NextRequest } from 'next/server';
 import { backendFetch } from '@/lib/api-client';
+import { isOrgSuspended } from '@/lib/suspended-orgs';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ orgId: string }> }) {
   const { orgId } = await params;
+
+  if (isOrgSuspended(orgId)) {
+    return Response.json({
+      success: false,
+      message: 'Cette boutique est actuellement suspendue.',
+      errorCode: 'ORGANIZATION_SUSPENDED'
+    }, { status: 403 });
+  }
 
   const result = await backendFetch(`/api/organizations/${orgId}`, {
     method: 'GET',
@@ -18,5 +27,5 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return Response.json({ ...result, data: normalized });
   }
 
-  return Response.json(result, { status: result.status || (result.errorCode === '401' ? 401 : 400) });
+  return Response.json(result, { status: (result as any).status || (result.errorCode === '401' ? 401 : 400) });
 }

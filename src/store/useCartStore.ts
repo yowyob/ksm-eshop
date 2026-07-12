@@ -7,9 +7,11 @@ export interface CartItem {
   productId: string;
   name: string;
   price: number;
+  wholesalePrice?: number;
   imageUrl: string;
   quantity: number;
   tenantId?: string;
+  selectedOptions?: Record<string, string>;
 }
 
 interface AddItemParams {
@@ -17,8 +19,10 @@ interface AddItemParams {
   variantId?: string;
   name: string;
   price: number;
+  wholesalePrice?: number;
   imageUrl?: string;
   tenantId?: string;
+  selectedOptions?: Record<string, string>;
 }
 
 interface CartState {
@@ -55,9 +59,11 @@ export const useCartStore = create<CartState>()(
                 productId: params.productId,
                 name: params.name,
                 price: params.price,
+                wholesalePrice: params.wholesalePrice,
                 imageUrl: params.imageUrl || '',
                 quantity: 1,
-                tenantId: params.tenantId
+                tenantId: params.tenantId,
+                selectedOptions: params.selectedOptions
               }
             ]
           };

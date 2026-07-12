@@ -7,6 +7,7 @@ import { Search, ShoppingCart, User, Globe, ChevronDown, LogOut, Menu, CreditCar
 import { Button } from '@/components/ui/Button';
 import { useCustomerAuthStore } from '@/store/useCustomerAuthStore';
 import { useCartStore } from '@/store/useCartStore';
+import BankAccountModal from '../shop/BankAccountModal';
 
 interface Organization {
   id: string;
@@ -38,6 +39,10 @@ export function GlobalNavbar({
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showOrgMenu, setShowOrgMenu] = useState(false);
   const [showLangMenu, setShowLangMenu] = useState(false);
+  const [showBankModal, setShowBankModal] = useState(false);
+  const [orgPage, setOrgPage] = useState(0);
+  const [orgSearch, setOrgSearch] = useState('');
+  const ORGS_PER_PAGE = 8;
 
   useEffect(() => {
     setIsClient(true);
@@ -90,25 +95,87 @@ export function GlobalNavbar({
             </button>
 
             {showOrgMenu && (
-              <div className="absolute top-full left-0 mt-4 w-64 bg-white text-zinc-900 shadow-2xl rounded-2xl border-2 border-zinc-900 z-50 animate-in slide-in-from-top-2 overflow-hidden">
-                <div className="max-h-96 overflow-y-auto">
-                  {organizations.map(org => {
-                    const orgName = org.displayName || org.shortName || org.name || org.id;
-                    return (
-                      <Link 
-                        key={org.id} 
-                        href={`/${org.id}`} 
-                        className="px-4 py-3 text-sm font-bold hover:bg-zinc-100 hover:text-blue-600 block border-b border-zinc-100 last:border-0 transition-colors"
-                        onClick={() => setShowOrgMenu(false)}
-                      >
-                        {orgName}
-                      </Link>
-                    );
-                  })}
-                  {organizations.length === 0 && (
-                    <div className="px-4 py-4 text-sm text-zinc-500 font-bold text-center">Aucune boutique disponible</div>
-                  )}
+              <div className="absolute top-full left-0 mt-4 w-72 bg-white text-zinc-900 shadow-2xl rounded-2xl border-2 border-zinc-900 z-50 animate-in slide-in-from-top-2 overflow-hidden">
+                {/* Search bar */}
+                <div className="p-3 border-b border-zinc-100">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
+                    <input
+                      type="text"
+                      placeholder="Rechercher une boutique..."
+                      className="w-full h-8 bg-zinc-50 border border-zinc-200 rounded-lg pl-8 pr-3 text-xs font-bold outline-none focus:border-blue-500"
+                      value={orgSearch}
+                      onChange={(e) => { setOrgSearch(e.target.value); setOrgPage(0); }}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </div>
                 </div>
+
+                {/* Filtered + paginated list */}
+                {(() => {
+                  const filtered = organizations.filter(org => {
+                    const name = org.displayName || org.shortName || (org as any).name || org.id;
+                    return name.toLowerCase().includes(orgSearch.toLowerCase());
+                  });
+                  const totalPages = Math.ceil(filtered.length / ORGS_PER_PAGE);
+                  const pageOrgs = filtered.slice(orgPage * ORGS_PER_PAGE, (orgPage + 1) * ORGS_PER_PAGE);
+
+                  return (
+                    <>
+                      <div className="max-h-64 overflow-y-auto">
+                        {pageOrgs.map(org => {
+                          const orgName = org.displayName || org.shortName || (org as any).name || org.id;
+                          return (
+                            <Link
+                              key={org.id}
+                              href={`/${org.id}`}
+                              className="px-4 py-2.5 text-sm font-bold hover:bg-zinc-100 hover:text-blue-600 flex items-center gap-2 border-b border-zinc-50 last:border-0 transition-colors"
+                              onClick={() => { setShowOrgMenu(false); setOrgSearch(''); setOrgPage(0); }}
+                            >
+                              <div className="h-7 w-7 rounded-lg bg-blue-600 flex items-center justify-center text-white font-black text-xs shrink-0">
+                                {orgName.charAt(0)}
+                              </div>
+                              <span className="truncate">{orgName}</span>
+                            </Link>
+                          );
+                        })}
+                        {filtered.length === 0 && (
+                          <div className="px-4 py-6 text-sm text-zinc-400 font-bold text-center">Aucune boutique trouvée</div>
+                        )}
+                      </div>
+
+                      {/* Pagination footer */}
+                      {totalPages > 1 && (
+                        <div className="flex items-center justify-between px-3 py-2 border-t border-zinc-100 bg-zinc-50">
+                          <button
+                            disabled={orgPage === 0}
+                            onClick={() => setOrgPage(p => p - 1)}
+                            className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed hover:bg-zinc-200 transition-colors"
+                          >
+                            ← Préc.
+                          </button>
+                          <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                            {orgPage + 1} / {totalPages}
+                          </span>
+                          <button
+                            disabled={orgPage >= totalPages - 1}
+                            onClick={() => setOrgPage(p => p + 1)}
+                            className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed hover:bg-zinc-200 transition-colors"
+                          >
+                            Suiv. →
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Count footer */}
+                      <div className="px-4 py-2 bg-zinc-50 border-t border-zinc-100 text-center">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                          {filtered.length} boutique{filtered.length !== 1 ? 's' : ''}
+                        </span>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
             )}
           </div>
@@ -194,6 +261,13 @@ export function GlobalNavbar({
                       Mon Profil
                     </button>
                   </Link>
+                  <button 
+                    onClick={() => { setShowBankModal(true); setShowUserMenu(false); }}
+                    className="w-full text-left px-4 py-2.5 text-xs font-black uppercase tracking-wider text-zinc-700 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors flex items-center gap-2.5 cursor-pointer"
+                  >
+                    <CreditCard className="h-4 w-4" />
+                    Compte Bancaire
+                  </button>
                   <Link href="/orders">
                     <button className="w-full text-left px-4 py-2.5 text-xs font-black uppercase tracking-wider text-zinc-700 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors flex items-center gap-2.5 cursor-pointer">
                       <ShoppingBag className="h-4 w-4" />
@@ -277,6 +351,14 @@ export function GlobalNavbar({
           </div>
         </form>
       </div>
+
+      {isClient && user && (
+        <BankAccountModal
+          isOpen={showBankModal}
+          onClose={() => setShowBankModal(false)}
+          userName={displayName}
+        />
+      )}
     </header>
   );
 }

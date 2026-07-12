@@ -43,5 +43,119 @@
     "type": "INDIVIDUAL",
     "enabled": true,
     "prospect": false
+  },
+  {
+    "id": "00000000-0000-0000-0000-000000000000",
+    "partyId": "00000000-0000-0000-0000-000000000000",
+    "organizationId": "d9d6a900-a3a6-4572-8349-415ad008b976",
+    "partyType": "ACTOR",
+    "code": "C-00000",
+    "name": "jhyyy74",
+    "longName": "jhyyy74",
+    "roles": [
+      "CUSTOMER"
+    ],
+    "type": "INDIVIDUAL",
+    "enabled": true,
+    "prospect": false
+  },
+  {
+    "partyId": "37b2f55a-8419-4d85-bfcc-586f399ba9bc",
+    "organizationId": "fac51104-41e7-4760-bdf4-4abd8f0ea059",
+    "partyType": "ACTOR",
+    "code": "C-37b2f55a",
+    "name": "jhyyy74",
+    "displayName": "jhyyy74",
+    "longName": "jhyyy74",
+    "accountingAccount": "client-37b2f55a",
+    "uniqueIdentificationNumber": "37b2f55a-8419-4d85-bfcc-586f399ba9bc",
+    "segment": "CUSTOMER",
+    "roles": [
+      "CUSTOMER"
+    ],
+    "type": "INDIVIDUAL",
+    "legalForm": "PERSON",
+    "thirdPartyFamily": "CLIENTS",
+    "classification": "STANDARD",
+    "enabled": true,
+    "prospect": false,
+    "vatSubject": false,
+    "authorizedPaymentMethods": [
+      "CASH",
+      "BANK_TRANSFER"
+    ],
+    "authorizedCreditLimit": 0,
+    "maxDiscountRate": 0,
+    "operationsBalance": 0,
+    "openingBalance": 0,
+    "payTermNumber": 0,
+    "payTermType": "DAYS",
+    "id": "cf20380a-a549-4b26-88c6-4107bb6942d9"
+  },
+  {
+    "partyId": "37b2f55a-8419-4d85-bfcc-586f399ba9bc",
+    "organizationId": "d9d6a900-a3a6-4572-8349-415ad008b976",
+    "partyType": "ACTOR",
+    "code": "C-37b2f55a",
+    "name": "jhyyy74",
+    "displayName": "jhyyy74",
+    "longName": "jhyyy74",
+    "accountingAccount": "client-37b2f55a",
+    "uniqueIdentificationNumber": "37b2f55a-8419-4d85-bfcc-586f399ba9bc",
+    "segment": "CUSTOMER",
+    "roles": [
+      "CUSTOMER"
+    ],
+    "type": "INDIVIDUAL",
+    "legalForm": "PERSON",
+    "thirdPartyFamily": "CLIENTS",
+    "classification": "STANDARD",
+    "enabled": true,
+    "prospect": false,
+    "vatSubject": false,
+    "authorizedPaymentMethods": [
+      "CASH",
+      "BANK_TRANSFER"
+    ],
+    "authorizedCreditLimit": 0,
+    "maxDiscountRate": 0,
+    "operationsBalance": 0,
+    "openingBalance": 0,
+    "payTermNumber": 0,
+    "payTermType": "DAYS",
+    "id": "0f39e8c1-1242-4a8a-bc5e-b71ae885e554"
+  },
+  {
+    "partyId": "c7a092d8-98fc-4df9-8144-52312e18507b",
+    "organizationId": "a6d70676-33d2-4776-b3f3-fab54cad7ba3",
+    "partyType": "ACTOR",
+    "code": "C-c7a092d8",
+    "name": "makji540",
+    "displayName": "makji540",
+    "longName": "makji540",
+    "accountingAccount": "client-c7a092d8",
+    "uniqueIdentificationNumber": "c7a092d8-98fc-4df9-8144-52312e18507b",
+    "segment": "CUSTOMER",
+    "roles": [
+      "CUSTOMER"
+    ],
+    "type": "INDIVIDUAL",
+    "legalForm": "PERSON",
+    "thirdPartyFamily": "CLIENTS",
+    "classification": "STANDARD",
+    "enabled": true,
+    "prospect": false,
+    "vatSubject": false,
+    "authorizedPaymentMethods": [
+      "CASH",
+      "BANK_TRANSFER"
+    ],
+    "authorizedCreditLimit": 0,
+    "maxDiscountRate": 0,
+    "operationsBalance": 0,
+    "openingBalance": 0,
+    "payTermNumber": 0,
+    "payTermType": "DAYS",
+    "id": "f18d8c45-da8e-4fe2-aa7b-c0f6f2271b1f"
   }
 ]

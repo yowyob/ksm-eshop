@@ -20,7 +20,12 @@ export default function OrganizationsPage() {
   const [orgs, setOrgs] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { logout } = useAuthStore();
+  const { user, logout } = useAuthStore();
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const handleLogout = async () => {
     await fetch('/api/admin/auth/logout', { method: 'POST' });
@@ -74,10 +79,25 @@ export default function OrganizationsPage() {
               <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest leading-none">Global Admin Layer</p>
             </div>
           </div>
-          <Button onClick={handleLogout} variant="ghost" className="text-zinc-500 hover:text-red-600 hover:bg-red-50">
-            <LogOut className="h-4 w-4 mr-2" />
-            Déconnexion
-          </Button>
+          <div className="flex items-center gap-4">
+            {isMounted && (
+              <>
+                <span className="text-xs font-medium text-zinc-500 mr-4">
+                  Connecté en tant que: <strong className="text-zinc-900">{user?.name || 'Inconnu'}</strong>
+                </span>
+                {user && (
+                  <Button onClick={() => router.push('/admin/super-admin')} className="bg-amber-500 hover:bg-amber-600 text-white font-black uppercase tracking-widest text-xs shadow-lg shadow-amber-500/20">
+                    <ShieldCheck className="h-4 w-4 mr-2" />
+                    Super Admin
+                  </Button>
+                )}
+              </>
+            )}
+            <Button onClick={handleLogout} variant="ghost" className="text-zinc-500 hover:text-red-600 hover:bg-red-50">
+              <LogOut className="h-4 w-4 mr-2" />
+              Déconnexion
+            </Button>
+          </div>
         </div>
       </header>
 

@@ -30,7 +30,7 @@ export default function AdminOrdersPage() {
       if (!organizationId) return;
       setIsLoading(true);
       try {
-        const res = await fetch(`/api/bon-commande?organizationId=${organizationId}`).then(r => r.json());
+        const res = await fetch(`/api/orders?organizationId=${organizationId}`).then(r => r.json());
         if (res.success || res.ok) {
           let rawData = res.data || res;
           if (rawData.content && Array.isArray(rawData.content)) rawData = rawData.content;
@@ -39,9 +39,19 @@ export default function AdminOrdersPage() {
           if (Array.isArray(rawData)) {
             const backendOrders = rawData.map((o: any) => ({
               id: o.documentNumber || o.orderNumber || o.id,
-              customerName: o.customerName || o.counterparty?.name || o.customerThirdPartyId || o.counterpartyThirdPartyId || 'Client',
+              customerName: o._customerName || o.counterparty?.name || o.counterparty?.displayName || o.counterparty?.longName || o.customerName || o.clientName || o.counterpartyName || (o.counterpartyThirdPartyId ? `Client-${String(o.counterpartyThirdPartyId).substring(0, 8)}` : 'Client'),
               customerId: o.counterparty?.id || o.customerThirdPartyId || o.counterpartyThirdPartyId || o.customerId,
-              total: o.totalAmount || o.subtotalAmount || o.total || 0,
+              total: (() => {
+                let amt = o.totalAmount || o.subtotalAmount || o.total;
+                if (!amt) {
+                  if (o.lines && Array.isArray(o.lines)) {
+                    amt = o.lines.reduce((sub: number, line: any) => sub + ((line.unitPrice || line.price || 0) * (line.quantity || 0)), 0);
+                  } else if (o.quantity && o.unitPrice) {
+                    amt = o.quantity * o.unitPrice;
+                  }
+                }
+                return amt || 0;
+              })(),
               status: o.status?.toLowerCase() || 'pending',
               date: o.createdAt ? new Date(o.createdAt).toLocaleDateString('fr-FR', {
                 hour: '2-digit', minute: '2-digit',

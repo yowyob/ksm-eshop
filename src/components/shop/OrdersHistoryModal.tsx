@@ -1,7 +1,7 @@
-import { useOrderStore } from '@/store/useOrderStore';
-import { X, ShoppingBag, Calendar, Tag, ShieldCheck, ArrowRight } from 'lucide-react';
-import { formatPrice } from '@/lib/utils';
+import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import { X, ShoppingBag, Calendar, Tag, ShieldCheck, ArrowRight, Loader2 } from 'lucide-react';
+import { formatPrice } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 
 interface OrdersHistoryModalProps {
@@ -9,23 +9,59 @@ interface OrdersHistoryModalProps {
   onClose: () => void;
   userName: string;
   userEmail: string;
+  customerId?: string;
 }
 
-export default function OrdersHistoryModal({ isOpen, onClose, userName, userEmail, customerId }: OrdersHistoryModalProps & { customerId?: string }) {
+export default function OrdersHistoryModal({ isOpen, onClose, userName, userEmail, customerId }: OrdersHistoryModalProps) {
   const { tenantId } = useParams(); // URL slug (tenant identifier)
-  const orders = useOrderStore((state) => state.orders);
+  const [customerOrders, setCustomerOrders] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && tenantId) {
+      const fetchMyOrders = async () => {
+        setIsLoading(true);
+        try {
+          const res = await fetch(`/api/orders?organizationId=${tenantId}${customerId ? `&customerId=${customerId}` : ''}`);
+          const data = await res.json();
+          if (data.success && data.data) {
+            let rawData = Array.isArray(data.data) ? data.data : (data.data.content || data.data.data || []);
+            const mappedOrders = rawData.map((o: any) => ({
+              id: o.documentNumber || o.orderNumber || o.id,
+              customerName: o.counterparty?.name || o.customerThirdPartyId || o.counterpartyThirdPartyId || o.customerName || 'Client',
+              customerId: o.counterparty?.id || o.customerThirdPartyId || o.counterpartyThirdPartyId || o.customerId,
+              total: o.totalAmount || o.subtotalAmount || o.total || 0,
+              status: o.status?.toLowerCase() || 'pending',
+              date: o.createdAt ? new Date(o.createdAt).toLocaleDateString('fr-FR', {
+                hour: '2-digit',
+                minute: '2-digit',
+              }) : (o.date || new Date().toLocaleDateString('fr-FR')),
+              tenantId: o.organizationId || o.tenantId || 't1', 
+              items: o.lines || o.items || [],
+            }));
+            
+            if (!customerId) {
+               setCustomerOrders(mappedOrders.filter((o: any) => 
+                 o.customerName.toLowerCase().includes(userName.toLowerCase()) || 
+                 o.customerName.toLowerCase() === 'client ksm' ||
+                 o.customerName === ''
+               ));
+            } else {
+               setCustomerOrders(mappedOrders);
+            }
+          } else {
+             setCustomerOrders([]);
+          }
+        } catch (e) {
+          console.error("Error fetching orders:", e);
+        }
+        setIsLoading(false);
+      };
+      fetchMyOrders();
+    }
+  }, [isOpen, tenantId, customerId, userName]);
 
   if (!isOpen) return null;
-
-  // Filter orders for the current tenant and current customer (match by name or generic checkout)
-  // We match by customer name or email, or show all for testing if empty
-  const customerOrders = orders.filter(
-    (order) => 
-      ((customerId && order.customerId === customerId) ||
-       order.customerName.toLowerCase().includes(userName.toLowerCase()) || 
-       order.customerName.toLowerCase() === 'client ksm' ||
-       order.customerName === '')
-  );
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -59,7 +95,12 @@ export default function OrdersHistoryModal({ isOpen, onClose, userName, userEmai
 
         {/* Content */}
         <div className="p-6 max-h-[60vh] overflow-y-auto bg-white">
-          {customerOrders.length === 0 ? (
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center space-y-4">
+              <Loader2 className="h-8 w-8 text-blue-600 animate-spin" />
+              <p className="text-zinc-500 font-bold text-sm">Chargement de vos commandes...</p>
+            </div>
+          ) : customerOrders.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center space-y-4">
               <div className="h-16 w-16 bg-zinc-100 rounded-full flex items-center justify-center text-zinc-400">
                 <ShoppingBag className="h-8 w-8" />
@@ -85,9 +126,20 @@ export default function OrdersHistoryModal({ isOpen, onClose, userName, userEmai
                     {order.items && order.items.length > 0 && (
                       <div className="text-xs font-bold text-zinc-600 mt-2 bg-zinc-50 p-2.5 rounded-lg">
                         {order.items.map((it: any, idx: number) => (
-                          <div key={idx} className="flex justify-between">
-                            <span>{it.quantity}x {it.name}</span>
-                            <span>{formatPrice(it.price * it.quantity)}</span>
+                          <div key={idx} className="flex flex-col gap-1 border-b border-zinc-100 last:border-0 pb-2 last:pb-0">
+                            <div className="flex justify-between">
+                              <span>{it.quantity}x {it.name}</span>
+                              <span>{formatPrice(it.price * it.quantity || it.unitPrice * it.quantity || 0)}</span>
+                            </div>
+                            {it.selectedOptions && Object.keys(it.selectedOptions).length > 0 && (
+                              <div className="flex flex-wrap gap-1">
+                                {Object.entries(it.selectedOptions).map(([key, val]) => (
+                                  <span key={key} className="text-[9px] bg-zinc-200 text-zinc-600 px-1.5 py-0.5 rounded-full uppercase tracking-widest font-black">
+                                    {key}: {val as string}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>

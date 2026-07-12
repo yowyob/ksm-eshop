@@ -91,6 +91,15 @@ export type Product = {
   imageUrl: string; // kept for compatibility with UI display
   price?: number;
   stock?: number;
+  unitPrice?: number;
+  wholesalePrice?: number;
+  currency?: string;
+  photo?: string;
+  quantity?: number;
+  categoryCode?: string;
+  familyCode?: string;
+  stockCount?: number;
+  options?: { name: string; values: string[] }[]; // e.g. [{name: "Taille", values: ["S", "M", "L"]}]
 };
 
 export type ProductSpec = {

@@ -48,7 +48,7 @@ export default function CheckoutPage() {
     const payload = {
       items,
       customerName: displayName,
-      customerId: user?.id || '00000000-0000-0000-0000-000000000000'
+      customerId: user?.partyId || user?.id || '00000000-0000-0000-0000-000000000000'
     };
 
     try {

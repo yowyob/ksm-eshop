@@ -16,17 +16,12 @@ interface OrderState {
   orders: Order[];
   isLoading: boolean;
   error: string | null;
-  fetchOrders: (organizationId?: string) => Promise<void>;
+  fetchOrders: (organizationId?: string, customerId?: string) => Promise<void>;
   addOrder: (order: Order) => Promise<boolean>;
   updateOrderStatus: (orderId: string, status: Order['status']) => Promise<boolean>;
 }
 
-const INITIAL_ORDERS: Order[] = [
-  { id: 'KSM-129482', customerName: 'Moussa Ibrahim', total: 4500, status: 'shipped', date: 'Aujourd\'hui, 14:20', tenantId: 't1', items: [] },
-  { id: 'KSM-129483', customerName: 'Alice Ngo', total: 12500, status: 'pending', date: 'Aujourd\'hui, 11:05', tenantId: 't1', items: [] },
-  { id: 'KSM-129484', customerName: 'Jean Dupont', total: 850, status: 'delivered', date: 'Hier, 18:45', tenantId: 't1', items: [] },
-  { id: 'KSM-129485', customerName: 'Céline Atangana', total: 250000, status: 'processing', date: 'Hier, 09:12', tenantId: 't2', items: [] },
-];
+const INITIAL_ORDERS: Order[] = [];
 
 export const useOrderStore = create<OrderState>()(
   persist(
@@ -35,10 +30,15 @@ export const useOrderStore = create<OrderState>()(
       isLoading: false,
       error: null,
 
-      fetchOrders: async (organizationId = 'o1') => {
+      fetchOrders: async (organizationId?: string, customerId?: string) => {
         set({ isLoading: true, error: null });
         try {
-          const res = await fetch(`/api/bon-commande?organizationId=${organizationId}`).then(r => r.json());
+          const params = new URLSearchParams();
+          if (organizationId) params.append('organizationId', organizationId);
+          if (customerId) params.append('customerId', customerId);
+          
+          const url = `/api/orders${params.toString() ? `?${params.toString()}` : ''}`;
+          const res = await fetch(url).then(r => r.json());
           if (res.success || res.ok) {
             let rawData = res.data || res;
             if (rawData.content && Array.isArray(rawData.content)) {
@@ -50,15 +50,19 @@ export const useOrderStore = create<OrderState>()(
             if (Array.isArray(rawData)) {
               const backendOrders = rawData.map((o: any) => ({
                 id: o.documentNumber || o.orderNumber || o.id,
-                customerName: o.counterparty?.name || o.customerThirdPartyId || o.counterpartyThirdPartyId || o.customerName || 'Client',
+                // _customerName est résolu par l'API depuis les tiers du kernel
+                customerName: o._customerName || o.counterparty?.name || o.counterparty?.displayName || o.customerName || o.customerThirdPartyId || 'Client',
                 customerId: o.counterparty?.id || o.customerThirdPartyId || o.counterpartyThirdPartyId || o.customerId,
                 total: o.totalAmount || o.subtotalAmount || o.total || 0,
                 status: o.status?.toLowerCase() || 'pending',
                 date: o.createdAt ? new Date(o.createdAt).toLocaleDateString('fr-FR', {
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric',
                   hour: '2-digit',
                   minute: '2-digit',
                 }) : (o.date || new Date().toLocaleDateString('fr-FR')),
-                tenantId: o.organizationId || o.tenantId || 't1', 
+                tenantId: o._orgId || o.organizationId || o.tenantId || 't1', 
                 items: o.lines || o.items || [],
               }));
               
@@ -88,9 +92,11 @@ export const useOrderStore = create<OrderState>()(
           lines: order.items.map(item => ({
             productId: item.productId || item.variantId || item.id,
             name: item.name,
-            image: item.image,
+            image: item.imageUrl || item.image, // Fallback for image
             quantity: item.quantity,
             unitPrice: item.price,
+            wholesalePrice: item.wholesalePrice,
+            selectedOptions: item.selectedOptions,
             taxRate: 0
           })),
         };

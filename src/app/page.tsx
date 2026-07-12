@@ -206,9 +206,19 @@ export default function GlobalMarketplacePage() {
                   <p className="text-xs text-zinc-500 mb-3 line-clamp-2">{product.description}</p>
                   
                   <div className="mt-auto">
-                    <div className="text-xl font-black text-zinc-900 mb-3">
+                    <div className="text-xl font-black text-zinc-900 mb-1">
                       {formatPrice(product.unitPrice || 0)} <span className="text-sm font-bold text-zinc-600">{product.currency || 'FCFA'}</span>
                     </div>
+                    
+                    {(() => {
+                      const stockQty = product.stock ?? product.quantity ?? product.stockCount ?? 0;
+                      const inStock = stockQty > 0;
+                      return (
+                        <div className={`text-xs font-bold mb-3 inline-block px-2 py-1 rounded-full border ${inStock ? 'text-emerald-600 bg-emerald-50 border-emerald-200' : 'text-red-600 bg-red-50 border-red-200'}`}>
+                          {inStock ? `Disponibilité : ${stockQty} en stock` : 'Épuisé'}
+                        </div>
+                      );
+                    })()}
                     
                     <Button 
                       onClick={(e) => {
@@ -222,14 +232,18 @@ export default function GlobalMarketplacePage() {
                           productId: product.id,
                           name: product.name,
                           price: product.unitPrice || 0,
-                          image: product.photo || '',
-                          quantity: 1,
+                          imageUrl: product.photo || '',
                           tenantId: product.organizationId
                         });
                       }}
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold border-none shadow-sm rounded-full text-sm h-9"
+                      disabled={(product.stock ?? product.quantity ?? product.stockCount ?? 0) === 0}
+                      className={`w-full font-bold border-none shadow-sm rounded-full text-sm h-9 ${
+                        (product.stock ?? product.quantity ?? product.stockCount ?? 0) === 0 
+                          ? 'bg-red-100 text-red-500 cursor-not-allowed' 
+                          : 'bg-blue-600 hover:bg-blue-700 text-white'
+                      }`}
                     >
-                      Ajouter au panier
+                      {(product.stock ?? product.quantity ?? product.stockCount ?? 0) > 0 ? 'Ajouter au panier' : 'Épuisé'}
                     </Button>
                   </div>
                 </CardContent>
@@ -270,7 +284,7 @@ export default function GlobalMarketplacePage() {
             </div>
             <div className="space-y-4">
               <h3 className="text-white font-black uppercase text-xs tracking-widest">Informations</h3>
-              <p className="text-xs font-bold">Douala, Cameroun</p>
+              <p className="text-xs font-bold">Yaoundé, Cameroun</p>
               <p className="text-xs font-bold text-zinc-500">Intégration technologique de pointe pour les PME locales.</p>
             </div>
           </div>

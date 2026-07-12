@@ -126,13 +126,15 @@ export default function ShopNavbar({ tenant }: ShopNavbarProps) {
                     <CreditCard className="h-4 w-4 text-blue-600" />
                     Compte Bancaire
                   </button>
-                  <button 
-                    onClick={() => { setShowOrdersModal(true); setShowDropdown(false); }}
-                    className="w-full text-left px-4 py-2.5 text-xs font-black uppercase tracking-wider text-zinc-700 hover:text-zinc-900 hover:bg-zinc-50 rounded-xl transition-colors flex items-center gap-2.5 cursor-pointer"
-                  >
-                    <ShoppingBag className="h-4 w-4 text-blue-600" />
-                    Mes Commandes
-                  </button>
+                  <Link href="/orders">
+                    <button 
+                      onClick={() => setShowDropdown(false)}
+                      className="w-full text-left px-4 py-2.5 text-xs font-black uppercase tracking-wider text-zinc-700 hover:text-zinc-900 hover:bg-zinc-50 rounded-xl transition-colors flex items-center gap-2.5 cursor-pointer"
+                    >
+                      <ShoppingBag className="h-4 w-4 text-blue-600" />
+                      Mes Commandes
+                    </button>
+                  </Link>
                   <div className="h-[2px] bg-zinc-100 my-2" />
                   <button 
                     disabled={loggingOut}
@@ -180,13 +182,6 @@ export default function ShopNavbar({ tenant }: ShopNavbarProps) {
             isOpen={showBankModal}
             onClose={() => setShowBankModal(false)}
             userName={displayName}
-          />
-          <OrdersHistoryModal
-            isOpen={showOrdersModal}
-            onClose={() => setShowOrdersModal(false)}
-            userName={displayName}
-            userEmail={user.email || ''}
-            customerId={user.id || user.thirdPartyId}
           />
         </>
       )}

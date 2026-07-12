@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Lock, ShieldCheck, ArrowLeft } from 'lucide-react';
+import { Lock, ShieldCheck, ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/useAuthStore';
 import ShopNavbar from '@/components/shop/ShopNavbar';
@@ -25,6 +25,7 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,7 +44,7 @@ export default function AdminLoginPage() {
         setError(data.message || 'Identifiants incorrects.');
         setLoading(false);
       } else {
-        login('Gérant (Admin)');
+        login(email);
         router.push('/admin/organizations');
       }
     } catch (err: any) {
@@ -89,14 +90,24 @@ export default function AdminLoginPage() {
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Mot de passe</label>
-                  <input 
-                    type="password" 
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required 
-                    placeholder="••••••••" 
-                    className="w-full bg-zinc-50 border-2 border-zinc-200 rounded-xl p-4 text-zinc-900 font-bold focus:border-blue-600 focus:outline-none transition-all"
-                  />
+                  <div className="relative">
+                    <input 
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required 
+                      placeholder="••••••••" 
+                      className="w-full bg-zinc-50 border-2 border-zinc-200 rounded-xl p-4 pr-12 text-zinc-900 font-bold focus:border-blue-600 focus:outline-none transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 transition-colors"
+                      tabIndex={-1}
+                    >
+                      {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    </button>
+                  </div>
                 </div>
                 <Button 
                   type="submit" 

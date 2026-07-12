@@ -7,13 +7,13 @@ export async function POST(request: NextRequest) {
   try {
     const payload = await request.json();
     
-    // Yowyob Payment webhook payload can vary, we try to extract event and metadata
-    const event = payload.event || payload.type || (payload.transaction?.status ? `TRANSACTION_${payload.transaction.status}` : null);
+    // Yowyob Payment webhook payload can be a TransactionResponse
+    const status = payload.status || payload.event || payload.type || (payload.transaction?.status);
     const metadata = payload.metadata || payload.transaction?.metadata || {};
     
-    console.log('[WEBHOOK PAYMENT] Received event:', event, 'Metadata:', metadata);
+    console.log('[WEBHOOK PAYMENT] Received status:', status, 'Metadata:', metadata);
 
-    if (event === 'TRANSACTION_SUCCEEDED') {
+    if (status === 'SUCCESSED' || status === 'TRANSACTION_SUCCEEDED') {
       const orderIdsStr = metadata.orderIds;
       if (!orderIdsStr) {
         return Response.json({ success: false, message: 'Missing orderIds in metadata' }, { status: 400 });

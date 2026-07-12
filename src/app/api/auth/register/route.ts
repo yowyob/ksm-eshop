@@ -43,6 +43,10 @@ export async function POST(request: Request) {
     }
 
     const authData = await authRes.json();
+    
+    // Save to local DB to count registrations via our page
+    const { saveLocalUser } = require('@/lib/local-db');
+    saveLocalUser({ name, email, organizationId });
 
     return NextResponse.json({
       success: true,

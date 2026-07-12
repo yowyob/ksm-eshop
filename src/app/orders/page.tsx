@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Package, Clock, CheckCircle, Truck, XCircle } from 'lucide-react';
+import { ArrowLeft, Package, Clock, CheckCircle, Truck, XCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useCustomerAuthStore } from '@/store/useCustomerAuthStore';
 import { useOrderStore } from '@/store/useOrderStore';
@@ -11,15 +11,21 @@ import { useOrderStore } from '@/store/useOrderStore';
 export default function OrdersPage() {
   const router = useRouter();
   const { isAuthenticated, user } = useCustomerAuthStore();
-  const { orders } = useOrderStore();
+  const { orders, isLoading } = useOrderStore();
   const [mounted, setMounted] = useState(false);
+  const [fetchDone, setFetchDone] = useState(false);
 
   useEffect(() => {
     setMounted(true);
     if (!isAuthenticated) {
       router.push('/login');
+    } else if (user) {
+      const customerId = user.partyId || user.id || user.thirdPartyId;
+      useOrderStore.getState().fetchOrders(undefined, customerId).then(() => {
+        setFetchDone(true);
+      });
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, router, user]);
 
   if (!mounted || !isAuthenticated) return null;
 
@@ -27,10 +33,8 @@ export default function OrdersPage() {
     ? (user.firstName || user.lastName ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : user.name || user.email) 
     : '';
 
-  // Filtrer les commandes par id client ou nom client
-  const myOrders = orders.filter(
-    o => o.customerId === user?.id || o.customerName === displayName || o.customerName === user?.name
-  );
+  // Les commandes sont filtrées par le backend via l'appel API
+  const myOrders = orders;
 
   const getStatusIcon = (status: string) => {
     switch (status.toLowerCase()) {
@@ -70,11 +74,20 @@ export default function OrdersPage() {
             </Link>
             <h1 className="text-xl font-black text-zinc-900">Mes Commandes</h1>
           </div>
+          {displayName && (
+            <p className="text-sm font-bold text-zinc-500 hidden sm:block">{displayName}</p>
+          )}
         </div>
       </div>
 
       <div className="container mx-auto px-4 py-8 max-w-4xl">
-        {myOrders.length === 0 ? (
+        {/* Chargement en cours */}
+        {(isLoading || !fetchDone) ? (
+          <div className="flex flex-col items-center justify-center py-24 gap-4">
+            <Loader2 className="h-10 w-10 text-blue-500 animate-spin" />
+            <p className="font-bold text-zinc-500">Chargement de vos commandes...</p>
+          </div>
+        ) : myOrders.length === 0 ? (
           <div className="bg-white rounded-2xl p-12 text-center shadow-sm border border-zinc-200 flex flex-col items-center">
             <div className="h-24 w-24 bg-zinc-100 rounded-full flex items-center justify-center mb-6">
               <Package className="h-10 w-10 text-zinc-400" />
@@ -121,6 +134,15 @@ export default function OrdersPage() {
                       )}
                       <div className="flex-1">
                         <p className="font-bold text-sm text-zinc-900 line-clamp-2">{item.name}</p>
+                        {item.selectedOptions && Object.keys(item.selectedOptions).length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {Object.entries(item.selectedOptions).map(([key, val]) => (
+                              <span key={key} className="text-[10px] bg-zinc-200 text-zinc-700 px-2 py-0.5 rounded-full font-bold">
+                                {key}: {val as string}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                         <p className="text-sm text-zinc-500 mt-1">Qté: {item.quantity}</p>
                       </div>
                       <div className="text-right">

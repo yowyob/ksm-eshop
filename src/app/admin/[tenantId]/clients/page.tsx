@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Users, Search, Loader2, Plus, X, Building2, User } from 'lucide-react';
+import { Users, Search, Loader2, Plus, X, Building2, User, Trash2 } from 'lucide-react';
 
 export default function AdminClientsPage() {
   const { tenantId } = useParams() as { tenantId: string };
@@ -17,6 +17,8 @@ export default function AdminClientsPage() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deduplicating, setDeduplicating] = useState(false);
+  const [dedupResult, setDedupResult] = useState<string | null>(null);
 
   // Form states based on Kernel schema
   const [formData, setFormData] = useState({
@@ -126,6 +128,26 @@ export default function AdminClientsPage() {
     }
   };
 
+  const handleDeduplicate = async () => {
+    if (!confirm('Voulez-vous vraiment supprimer les clients en double ? Cette action est irréversible.')) return;
+    setDeduplicating(true);
+    setDedupResult(null);
+    try {
+      const res = await fetch('/api/admin/clients/deduplicate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ organizationId: tenantId })
+      });
+      const data = await res.json();
+      setDedupResult(data.message || 'Opération terminée.');
+      if (data.success) fetchClients();
+    } catch (err: any) {
+      setDedupResult('Erreur : ' + err.message);
+    } finally {
+      setDeduplicating(false);
+    }
+  };
+
   const filteredClients = clients;
 
   return (
@@ -141,6 +163,16 @@ export default function AdminClientsPage() {
           </p>
         </div>
         <div className="flex gap-3">
+          <Button
+            onClick={handleDeduplicate}
+            disabled={deduplicating}
+            size="sm"
+            variant="outline"
+            className="border-red-300 text-red-600 hover:bg-red-50 font-black uppercase text-[10px] gap-2 h-9"
+          >
+            {deduplicating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+            Supprimer doublons
+          </Button>
           <Button 
             onClick={openModal}
             size="sm" 
@@ -154,6 +186,12 @@ export default function AdminClientsPage() {
       {error && (
         <div className="bg-red-50 border-2 border-red-200 text-red-600 p-4 rounded-xl text-sm font-bold">
           {error}
+        </div>
+      )}
+      {dedupResult && (
+        <div className="bg-emerald-50 border-2 border-emerald-200 text-emerald-700 p-4 rounded-xl text-sm font-bold flex items-center justify-between">
+          <span>{dedupResult}</span>
+          <button onClick={() => setDedupResult(null)} className="text-emerald-500 hover:text-emerald-800"><X className="h-4 w-4" /></button>
         </div>
       )}
 
