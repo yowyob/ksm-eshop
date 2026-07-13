@@ -25,6 +25,27 @@ export default function GlobalMarketplacePage() {
 
   const { addItem } = useCartStore();
 
+  const parseJsonResponse = async (response: Response): Promise<any | null> => {
+    const text = await response.text();
+    if (!text) return null;
+    try {
+      return JSON.parse(text);
+    } catch (parseError: unknown) {
+      const message = parseError instanceof Error ? parseError.message : String(parseError);
+      throw new Error(`Réponse JSON invalide (${message}) : ${text.slice(0, 200)}`);
+    }
+  };
+
+  const normalizeEntities = (payload: any): any[] => {
+    if (Array.isArray(payload)) return payload;
+    if (!payload || typeof payload !== 'object') return [];
+    if (Array.isArray(payload.content)) return payload.content;
+    if (Array.isArray(payload.data)) return payload.data;
+    if (payload.data && typeof payload.data === 'object' && Array.isArray(payload.data.content)) return payload.data.content;
+    if (payload.id) return [payload];
+    return [];
+  };
+
   const fetchData = async () => {
     setLoading(true);
     setError(null);
@@ -34,34 +55,30 @@ export default function GlobalMarketplacePage() {
         fetch('/api/products?organizationId=ALL')
       ]);
 
-      const orgsData = await orgsRes.json();
-      const prodsData = await prodsRes.json();
-
-      if (orgsData.success) {
-        let list: Organization[] = [];
-        const raw = orgsData.data;
-        if (Array.isArray(raw)) list = raw;
-        else if (raw?.content && Array.isArray(raw.content)) list = raw.content;
-        else if (raw?.data && Array.isArray(raw.data)) list = raw.data;
-        else if (raw && typeof raw === 'object') list = [raw];
-        setOrganizations(list);
+      if (!orgsRes.ok) {
+        throw new Error(`Erreur organisations ${orgsRes.status}: ${orgsRes.statusText}`);
+      }
+      if (!prodsRes.ok) {
+        throw new Error(`Erreur produits ${prodsRes.status}: ${prodsRes.statusText}`);
       }
 
-      if (prodsData.success) {
-        let pList: Product[] = [];
-        const raw = prodsData.data;
-        if (Array.isArray(raw)) pList = raw;
-        else if (raw?.content && Array.isArray(raw.content)) pList = raw.content;
-        else if (raw?.data && Array.isArray(raw.data)) pList = raw.data;
-        
-        // Randomize products initially
-        pList.sort(() => Math.random() - 0.5);
-        setProducts(pList);
+      const orgsData = await parseJsonResponse(orgsRes);
+      const prodsData = await parseJsonResponse(prodsRes);
+
+      const orgsPayload = orgsData?.success ? orgsData.data ?? orgsData : orgsData;
+      setOrganizations(normalizeEntities(orgsPayload));
+
+      const prodsPayload = prodsData?.success ? prodsData.data ?? prodsData : prodsData;
+      const productList = normalizeEntities(prodsPayload);
+      if (productList.length > 0) {
+        productList.sort(() => Math.random() - 0.5);
+        setProducts(productList);
       } else {
-        setError(prodsData.message || 'Erreur lors du chargement des produits.');
+        setError('Aucun produit disponible pour le moment, ou réponse serveur vide.');
       }
-    } catch (err: any) {
-      setError(err.message || 'Erreur de connexion avec le serveur.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      setError(message || 'Erreur de connexion avec le serveur.');
     } finally {
       setLoading(false);
     }
