@@ -7,15 +7,31 @@ import { useCartStore } from '@/store/useCartStore';
 import { useCustomerAuthStore } from '@/store/useCustomerAuthStore';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
-import { Loader2, AlertTriangle, ArrowLeft, ShieldCheck, ShoppingCart } from 'lucide-react';
+import { Loader2, AlertTriangle, ArrowLeft, ShieldCheck, ShoppingCart, Tag, Layers, PackageCheck } from 'lucide-react';
 import Link from 'next/link';
+
+/** Normalise les variantes qu'elles viennent du champ `options` ou `variants` du backend */
+function normalizeOptions(product: any): { name: string; values: string[] }[] {
+  // Champ `options` → [{name, values:[]}]
+  if (Array.isArray(product?.options) && product.options.length > 0) {
+    return product.options.filter((o: any) => o?.name && Array.isArray(o?.values) && o.values.length > 0);
+  }
+  // Champ `variants` → [{name, values:[]}] (même structure souvent)
+  if (Array.isArray(product?.variants) && product.variants.length > 0) {
+    // Si les variants sont des objets {name, values}
+    if (product.variants[0]?.values) {
+      return product.variants.filter((v: any) => v?.name && Array.isArray(v?.values) && v.values.length > 0);
+    }
+    // Si les variants sont des objets de type Kernel {id, sku, ...} → on ignore (variantes de stock)
+  }
+  return [];
+}
 
 export default function ProductDetailPage() {
   const { tenantId, productId } = useParams();
   const router = useRouter();
   const [product, setProduct] = useState<Product | null>(null);
   const [similarProducts, setSimilarProducts] = useState<Product[]>([]);
-  const [organizations, setOrganizations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,7 +55,7 @@ export default function ProductDetailPage() {
         const prodsData = await prodsRes.json();
 
         if (orgsData.success) {
-          setOrganizations(orgsData.data || []);
+          // organisations chargées (non utilisées directement ici)
         }
 
         if (prodsData.success) {
@@ -62,11 +78,11 @@ export default function ProductDetailPage() {
               setActiveImage(images[0]);
             }
             
-            // Find similar products based on categoryCode
+            // Trouver produits similaires (même catégorie)
             const similar = pList.filter(p => 
               p.id !== productId && 
               (p as any).categoryCode === (currentProduct as any).categoryCode
-            ).slice(0, 5); // Take up to 5 similar products
+            ).slice(0, 5);
             setSimilarProducts(similar);
           } else {
             setError('Produit non trouvé.');
@@ -88,15 +104,16 @@ export default function ProductDetailPage() {
     return new Intl.NumberFormat('fr-FR').format(price);
   };
 
-  const handleSearch = (query: string) => {
-    if (query.trim()) router.push(`/?search=${encodeURIComponent(query)}`);
-  };
-
   // Extraire toutes les images valides
   const imageList = ((product as any)?.photo || (product as any)?.imageUrl || '')
     .split(',')
     .map((img: string) => img.trim())
     .filter((img: string) => img !== '');
+
+  const stockQty = (product as any)?.stock ?? (product as any)?.quantity ?? (product as any)?.stockCount ?? 0;
+  const normalizedOptions = product ? normalizeOptions(product) : [];
+  const hasVariants = normalizedOptions.length > 0;
+  const allOptionsSelected = hasVariants ? normalizedOptions.every(opt => selectedOptions[opt.name]) : true;
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-50 font-sans">
@@ -119,7 +136,7 @@ export default function ProductDetailPage() {
             <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-red-500" />
             <p className="font-black text-xl mb-2">{error || 'Produit introuvable'}</p>
             <Button onClick={() => router.push('/')} variant="outline" className="mt-6 border-red-200 text-red-700 hover:bg-red-100 rounded-full font-bold px-8">
-              Retour à l'accueil
+              Retour à l&apos;accueil
             </Button>
           </div>
         ) : (
@@ -176,53 +193,71 @@ export default function ProductDetailPage() {
                   </span>
                 </div>
                 <h1 className="text-3xl sm:text-4xl font-black text-zinc-900 leading-tight mb-4">{product.name}</h1>
-                <p className="text-zinc-500 font-medium leading-relaxed mb-8">{product.description || 'Aucune description disponible pour ce produit.'}</p>
+                <p className="text-zinc-500 font-medium leading-relaxed mb-6">{product.description || 'Aucune description disponible pour ce produit.'}</p>
                 
-                <div className="flex flex-col gap-2 mb-6">
-                  {product.wholesalePrice ? (
+                {/* Prix */}
+                <div className="flex flex-col gap-3 mb-6 p-4 bg-zinc-50 rounded-2xl border border-zinc-100">
+                  {product.wholesalePrice && product.wholesalePrice > 0 ? (
                     <>
-                      <div className="flex items-end gap-3">
-                        <span className="text-sm font-bold text-zinc-500 uppercase tracking-wider w-20">Détail :</span>
-                        <span className="text-2xl font-black text-zinc-900">
-                          {formatPrice(product.unitPrice || 0)} <span className="text-sm font-bold text-zinc-500">{product.currency || 'FCFA'}</span>
+                      <div className="flex items-center justify-between">
+                        <span className="flex items-center gap-1.5 text-xs font-black text-zinc-500 uppercase tracking-wider">
+                          <Tag className="h-3.5 w-3.5" /> Prix de détail
+                        </span>
+                        <span className="text-xl font-black text-zinc-800">
+                          {formatPrice(product.unitPrice || 0)} <span className="text-sm font-bold text-zinc-400">{product.currency || 'FCFA'}</span>
                         </span>
                       </div>
-                      <div className="flex items-end gap-3">
-                        <span className="text-sm font-bold text-blue-600 uppercase tracking-wider w-20">Gros :</span>
-                        <span className="text-4xl font-black text-blue-600">
-                          {formatPrice(product.wholesalePrice)} <span className="text-xl font-bold text-blue-400">{product.currency || 'FCFA'}</span>
+                      <div className="flex items-center justify-between border-t border-zinc-200 pt-3">
+                        <span className="flex items-center gap-1.5 text-xs font-black text-blue-600 uppercase tracking-wider">
+                          <Layers className="h-3.5 w-3.5" /> Prix de gros
+                        </span>
+                        <span className="text-3xl font-black text-blue-600">
+                          {formatPrice(product.wholesalePrice)} <span className="text-lg font-bold text-blue-400">{product.currency || 'FCFA'}</span>
                         </span>
                       </div>
                     </>
                   ) : (
-                    <div className="text-4xl font-black text-zinc-900">
-                      {formatPrice(product.unitPrice || 0)} <span className="text-xl font-bold text-zinc-500">{product.currency || 'FCFA'}</span>
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 text-xs font-black text-zinc-500 uppercase tracking-wider">
+                        <Tag className="h-3.5 w-3.5" /> Prix
+                      </span>
+                      <span className="text-3xl font-black text-zinc-900">
+                        {formatPrice(product.unitPrice || 0)} <span className="text-lg font-bold text-zinc-500">{product.currency || 'FCFA'}</span>
+                      </span>
                     </div>
                   )}
                 </div>
 
-                <div className="mb-8">
-                  <div className={`text-sm font-black px-4 py-2 inline-flex items-center gap-2 rounded-full border ${
-                    ((product as any).stock ?? (product as any).quantity ?? (product as any).stockCount ?? 0) > 0 
+                {/* Stock */}
+                <div className="mb-6 flex items-center gap-3">
+                  <div className={`flex items-center gap-2 text-sm font-black px-4 py-2.5 rounded-full border-2 ${
+                    stockQty > 0 
                       ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                       : 'bg-red-50 text-red-700 border-red-200'
                   }`}>
-                    <div className={`w-2 h-2 rounded-full ${
-                      ((product as any).stock ?? (product as any).quantity ?? (product as any).stockCount ?? 0) > 0 ? 'bg-emerald-500' : 'bg-red-500'
-                    }`} />
-                    {((product as any).stock ?? (product as any).quantity ?? (product as any).stockCount ?? 0) > 0 
-                      ? `${((product as any).stock ?? (product as any).quantity ?? (product as any).stockCount ?? 0)} unités en stock`
+                    <PackageCheck className={`h-4 w-4 ${stockQty > 0 ? 'text-emerald-500' : 'text-red-400'}`} />
+                    {stockQty > 0 
+                      ? `${stockQty} unité${stockQty > 1 ? 's' : ''} en stock`
                       : 'Épuisé'
                     }
                   </div>
+                  <ShieldCheck className="h-5 w-5 text-zinc-300" />
+                  <span className="text-xs text-zinc-400 font-medium">Stock vérifié</span>
                 </div>
 
-                {/* Variants Selection */}
-                {product.options && product.options.length > 0 && (
-                  <div className="mb-8 space-y-6 border-t border-zinc-100 pt-6">
-                    {product.options.map((opt, idx) => (
-                      <div key={idx} className="space-y-3">
-                        <h3 className="font-bold text-zinc-900 uppercase tracking-wider text-sm">{opt.name}</h3>
+                {/* Variants / Options Selection */}
+                {hasVariants && (
+                  <div className="mb-8 space-y-5 border-t border-zinc-100 pt-6">
+                    <p className="text-xs font-black uppercase tracking-widest text-zinc-400">Choisissez vos options</p>
+                    {normalizedOptions.map((opt, idx) => (
+                      <div key={idx} className="space-y-2">
+                        <h3 className="font-bold text-zinc-800 text-sm flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
+                          {opt.name}
+                          {selectedOptions[opt.name] && (
+                            <span className="text-blue-600 font-black">— {selectedOptions[opt.name]}</span>
+                          )}
+                        </h3>
                         <div className="flex flex-wrap gap-2">
                           {opt.values.map((val, vIdx) => (
                             <button
@@ -250,13 +285,11 @@ export default function ProductDetailPage() {
                       router.push(`/login?redirect=${encodeURIComponent(currentPath)}`);
                       return;
                     }
-                    const allOptionsSelected = product.options ? product.options.every(opt => selectedOptions[opt.name]) : true;
                     if (!allOptionsSelected) {
                       alert('Veuillez sélectionner toutes les options avant d\'ajouter au panier.');
                       return;
                     }
 
-                    // Create a composite variantId based on product ID and selected options
                     const optionsString = Object.entries(selectedOptions).sort().map(([k,v]) => `${k}=${v}`).join('|');
                     const variantId = optionsString ? `${product.id}-${optionsString}` : product.id;
                     const variantNameAppendix = optionsString ? ` (${Object.values(selectedOptions).join(', ')})` : '';
@@ -273,12 +306,15 @@ export default function ProductDetailPage() {
                     });
                   }}
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black text-lg py-6 rounded-2xl shadow-xl shadow-blue-600/20 transition-all hover:scale-[1.02] flex items-center justify-center gap-3"
-                  disabled={((product as any).stock ?? (product as any).quantity ?? (product as any).stockCount ?? 0) === 0 || (product.options ? !product.options.every(opt => selectedOptions[opt.name]) : false)}
+                  disabled={stockQty === 0 || !allOptionsSelected}
                 >
                   <ShoppingCart className="h-6 w-6" />
-                  {((product as any).stock ?? (product as any).quantity ?? (product as any).stockCount ?? 0) > 0 
-                    ? (product.options && !product.options.every(opt => selectedOptions[opt.name]) ? 'Sélectionnez vos options' : 'Ajouter au panier') 
-                    : 'Rupture de stock'}
+                  {stockQty === 0
+                    ? 'Rupture de stock'
+                    : !allOptionsSelected
+                      ? 'Sélectionnez vos options'
+                      : 'Ajouter au panier'
+                  }
                 </Button>
               </div>
             </div>
@@ -303,7 +339,7 @@ export default function ProductDetailPage() {
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
-                            <span className="text-zinc-300 font-bold text-xs uppercase">Pas d'image</span>
+                            <span className="text-zinc-300 font-bold text-xs uppercase">Pas d&apos;image</span>
                           </div>
                         )}
                       </Link>
@@ -317,6 +353,11 @@ export default function ProductDetailPage() {
                           <div className="text-base font-black text-zinc-900">
                             {formatPrice(sim.unitPrice || 0)} <span className="text-xs font-bold text-zinc-500">{sim.currency || 'FCFA'}</span>
                           </div>
+                          {(sim as any).wholesalePrice > 0 && (
+                            <div className="text-xs font-bold text-blue-500 mt-0.5">
+                              Gros: {formatPrice((sim as any).wholesalePrice)} {sim.currency || 'FCFA'}
+                            </div>
+                          )}
                         </div>
                       </CardContent>
                     </Card>
