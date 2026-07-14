@@ -17,7 +17,8 @@ interface TokenCache {
 let tokenCache: TokenCache | null = null;
 let isRefreshing = false; // verrou pour éviter les appels parallèles
 
-const KERNEL_BASE = process.env.BACKEND_URL        || 'https://kernel-core.yowyob.com';
+// Lire l'URL au moment de la requête (pas au chargement du module) pour éviter les valeurs obsolètes après hot-reload
+export const getKernelBase = () => process.env.BACKEND_URL || 'https://kernel-core.yowyob.com';
 const X_CLIENT_ID = process.env.KERNEL_X_CLIENT_ID || 'prod-platform-backend';
 const X_API_KEY   = process.env.KERNEL_X_API_KEY   || '';
 const X_TENANT_ID = process.env.KERNEL_X_TENANT_ID || '11111111-1111-1111-1111-111111111111';
@@ -50,7 +51,7 @@ export function getKernelBaseHeaders(): Record<string, string> {
 async function loginToKernel(): Promise<string> {
   console.log('[KernelAuth] Connexion au kernel...');
 
-  const res = await fetch(`${KERNEL_BASE}/api/auth/login`, {
+  const res = await fetch(`${getKernelBase()}/api/auth/login`, {
     method:  'POST',
     headers: getKernelBaseHeaders(),
     body:    JSON.stringify({ principal: PRINCIPAL, password: PASSWORD }),
