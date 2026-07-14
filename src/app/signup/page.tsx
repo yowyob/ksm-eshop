@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { useRouter } from 'next/navigation';
-import { Building2, ArrowRight } from 'lucide-react';
+import { Building2, ArrowRight, ArrowLeft } from 'lucide-react';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -47,7 +47,12 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center bg-zinc-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-[80vh] flex items-center justify-center bg-zinc-50 py-12 px-4 sm:px-6 lg:px-8 relative">
+      <Link href="/">
+        <Button variant="ghost" className="absolute top-4 left-4 sm:top-8 sm:left-8 text-zinc-500 hover:bg-zinc-200 hover:text-zinc-900 rounded-full h-12 w-12 p-0 flex items-center justify-center">
+          <ArrowLeft className="h-6 w-6" />
+        </Button>
+      </Link>
       <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-3xl shadow-xl border-2 border-zinc-100">
         <div className="text-center">
           <div className="mx-auto h-16 w-16 bg-zinc-900 rounded-2xl flex items-center justify-center shadow-lg mb-6">

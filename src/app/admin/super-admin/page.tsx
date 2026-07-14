@@ -48,6 +48,14 @@ export default function SuperAdminPage() {
       router.push('/admin/login');
       return;
     }
+    
+    if (
+      user?.email?.toLowerCase().trim() !== 'atenaornella@gmail.com' &&
+      user?.name?.toLowerCase().trim() !== 'atenaornella@gmail.com'
+    ) {
+      router.push('/admin/organizations');
+      return;
+    }
 
     const fetchStats = async () => {
       try {

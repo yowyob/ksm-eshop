@@ -39,7 +39,7 @@ export default function AdminSidebar({ tenant }: AdminSidebarProps) {
   const handleLogout = async () => {
     await fetch('/api/admin/auth/logout', { method: 'POST' });
     logout();
-    router.push('/admin/login');
+    router.push('/login');
   };
 
   const navItems = [
@@ -53,7 +53,10 @@ export default function AdminSidebar({ tenant }: AdminSidebarProps) {
     { label: 'Abonnement', icon: Settings, href: `/admin/${tenant.slug}/subscription` },
   ];
 
-  if (user?.name?.toLowerCase().trim() === 'atenaornella@gmail.com') {
+  if (
+    user?.email?.toLowerCase().trim() === 'atenaornella@gmail.com' ||
+    user?.name?.toLowerCase().trim() === 'atenaornella@gmail.com'
+  ) {
     navItems.push({ label: 'Super Admin', icon: ShieldCheck, href: `/admin/super-admin` });
   }
 

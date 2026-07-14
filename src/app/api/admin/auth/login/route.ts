@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { cookies } from 'next/headers';
-import { getKernelBaseHeaders } from '@/lib/kernel-auth';
+import { getKernelBaseHeaders, getKernelBase } from '@/lib/kernel-auth';
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,17 +13,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const BACKEND_URL = process.env.BACKEND_URL || 'https://kernel-core.yowyob.com';
-
-    // Appel direct au Kernel avec les credentials de l'utilisateur
-    const res = await fetch(`${BACKEND_URL}/api/auth/login`, {
+    // Lire BACKEND_URL au moment de la requête (pas au chargement du module)
+    const res = await fetch(`${getKernelBase()}/api/auth/login`, {
       method: 'POST',
       headers: getKernelBaseHeaders(),
       body: JSON.stringify({ principal, password }),
+      cache: 'no-store',
     });
 
     const data = await res.json();
-    console.log('[Admin Login Response Data]', JSON.stringify(data, null, 2));
 
     if (!res.ok || !data.success) {
       return Response.json(
@@ -33,9 +31,8 @@ export async function POST(request: NextRequest) {
     }
 
     const accessToken = data?.data?.accessToken || data?.data?.access_token;
-    const sessionId = data?.data?.sessionId || data?.data?.sessionToken;
-
-    const token = accessToken || sessionId;
+    const sessionId   = data?.data?.sessionId   || data?.data?.sessionToken;
+    const token       = accessToken || sessionId;
 
     if (!token) {
       return Response.json(
@@ -44,31 +41,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Calcul de l'expiration du cookie (par ex. 1 jour si non spécifié)
-    const expiresIn = data?.data?.expiresIn || 24 * 60 * 60; // en secondes
-    const maxAge = Number(expiresIn);
-    
-    const sharedToken = data?.data?.sharedSession?.token;
-    const sharedMaxAge = data?.data?.sharedSession?.expiresInSeconds || maxAge;
+    // Token expire dans expiresInSeconds (900s = 15 min), on met 23h pour le cookie
+    // car le refresh se fait via le sharedToken
+    const tokenExpiry  = data?.data?.expiresInSeconds || data?.data?.expiresIn || 900;
+    const cookieMaxAge = Math.max(tokenExpiry, 23 * 60 * 60); // min 23h pour le cookie
 
-    // Stockage du token dans un cookie HTTP-Only sécurisé
+    const sharedToken    = data?.data?.sharedSession?.token;
+    const sharedMaxAge   = data?.data?.sharedSession?.expiresInSeconds || 8 * 60 * 60;
+
     const cookieStore = await cookies();
-    cookieStore.set('adminToken', accessToken || token, {
+
+    cookieStore.set('adminToken', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
-      maxAge: maxAge,
+      maxAge: cookieMaxAge,
     });
-    
+
     cookieStore.set('adminSessionId', sessionId || token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
-      maxAge: maxAge,
+      maxAge: cookieMaxAge,
     });
-    
+
     if (sharedToken) {
       cookieStore.set('adminSharedToken', sharedToken, {
         httpOnly: true,
@@ -79,7 +77,16 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    return Response.json({ success: true, message: 'Connecté avec succès.' });
+    // Stocker le tokenExpiry pour permettre le refresh côté client si nécessaire
+    cookieStore.set('adminTokenExpiry', String(Date.now() + tokenExpiry * 1000), {
+      httpOnly: false, // lisible côté client pour planifier le refresh
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: cookieMaxAge,
+    });
+
+    return Response.json({ success: true, message: 'Connecté avec succès.', expiresIn: tokenExpiry });
   } catch (error: any) {
     console.error('[Admin Login Error]', error);
     return Response.json(

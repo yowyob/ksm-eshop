@@ -30,7 +30,7 @@ export default function OrganizationsPage() {
   const handleLogout = async () => {
     await fetch('/api/admin/auth/logout', { method: 'POST' });
     logout();
-    router.push('/admin/login');
+    router.push('/login');
   };
 
   const fetchOrganizations = useCallback(async () => {
@@ -39,7 +39,7 @@ export default function OrganizationsPage() {
     try {
       const res = await fetch('/api/organizations/my');
       if (res.status === 401) {
-        router.push('/admin/login');
+        router.push('/login');
         return;
       }
       const data = await res.json();
@@ -85,7 +85,7 @@ export default function OrganizationsPage() {
                 <span className="text-xs font-medium text-zinc-500 mr-4">
                   Connecté en tant que: <strong className="text-zinc-900">{user?.name || 'Inconnu'}</strong>
                 </span>
-                {user && (
+                {user && user.email === 'atenaornella@gmail.com' && (
                   <Button onClick={() => router.push('/admin/super-admin')} className="bg-amber-500 hover:bg-amber-600 text-white font-black uppercase tracking-widest text-xs shadow-lg shadow-amber-500/20">
                     <ShieldCheck className="h-4 w-4 mr-2" />
                     Super Admin

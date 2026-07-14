@@ -33,11 +33,9 @@ export default function AdminProductsPage() {
     name: '',
     description: '',
     retailPrice: '',
-    wholesalePrice: '',
     categoryCode: '',
     imageUrl: '',
     quantity: '0',
-    optionsText: ''
   });
 
   // Edit Form States
@@ -93,7 +91,6 @@ export default function AdminProductsPage() {
         description: newProduct.description,
         unitPrice: parseFloat(newProduct.retailPrice) || 1,
         retailPrice: parseFloat(newProduct.retailPrice) || 1,
-        wholesalePrice: parseFloat(newProduct.wholesalePrice) || 0,
         photo: newProduct.imageUrl,
         imageUrl: newProduct.imageUrl,
         currency: 'FCFA',
@@ -103,16 +100,6 @@ export default function AdminProductsPage() {
         quantity: parseInt(newProduct.quantity, 10) || 0,
         sku: `SKU-${Date.now()}`,
         status: 'ACTIVE',
-        options: newProduct.optionsText.split('\n')
-          .map(line => line.trim())
-          .filter(line => line.includes(':'))
-          .map(line => {
-            const [name, vals] = line.split(':');
-            return {
-              name: name.trim(),
-              values: vals.split(',').map(v => v.trim()).filter(v => v !== '')
-            };
-          }).filter(opt => opt.name && opt.values.length > 0)
       };
 
       const res = await fetch('/api/admin/products', {
@@ -125,10 +112,9 @@ export default function AdminProductsPage() {
       if (data.success || res.ok) {
         setIsAddingProduct(false);
         setNewProduct({
-          name: '', description: '', retailPrice: '', wholesalePrice: '', categoryCode: '',
+          name: '', description: '', retailPrice: '', categoryCode: '',
           imageUrl: '',
           quantity: '0',
-          optionsText: ''
         });
         await fetchProducts();
       } else {
@@ -144,15 +130,14 @@ export default function AdminProductsPage() {
   const openEditForm = (p: KernelProduct) => {
     setEditProduct({
       id: p.id,
+      sku: (p as any).sku || '',
       name: p.name,
       description: p.description || '',
       retailPrice: (p.unitPrice !== undefined ? p.unitPrice : (p.price || 0)).toString(),
-      wholesalePrice: (p.wholesalePrice || 0).toString(),
-      categoryCode: p.categoryCode || p.familyCode || p.categoryId || '',
+      categoryCode: p.categoryCode || p.familyCode || '',
       imageUrl: p.photo || p.imageUrl || p.image || p.picture || '',
       quantity: p.quantity !== undefined ? p.quantity : 0,
       status: p.status || 'ACTIVE',
-      optionsText: p.options ? p.options.map((opt: any) => `${opt.name}: ${opt.values.join(', ')}`).join('\n') : ''
     });
     setIsEditingProduct(true);
     setIsAddingProduct(false);
@@ -168,11 +153,11 @@ export default function AdminProductsPage() {
     try {
       const payload: any = {
         organizationId: tenantId,
+        sku: editProduct.sku || editProduct.name.substring(0, 5).toUpperCase() + '-' + Date.now().toString().substring(7),
         name: editProduct.name,
         description: editProduct.description,
-        unitPrice: parseFloat(editProduct.retailPrice) || 1, // Fallback to 1 to avoid <= 0 validation error
+        unitPrice: parseFloat(editProduct.retailPrice) || 1,
         retailPrice: parseFloat(editProduct.retailPrice) || 1,
-        wholesalePrice: parseFloat(editProduct.wholesalePrice) || 0,
         photo: editProduct.imageUrl,
         status: editProduct.status,
         currency: 'FCFA',
@@ -180,21 +165,10 @@ export default function AdminProductsPage() {
         categoryCode: editProduct.categoryCode || 'STANDARD',
         variantLabel: 'Standard',
         quantity: parseInt(editProduct.quantity, 10) || 0,
-        sku: editProduct.name.substring(0, 5).toUpperCase() + '-' + Date.now().toString().substring(7),
-        options: editProduct.optionsText.split('\n')
-          .map((line: string) => line.trim())
-          .filter((line: string) => line.includes(':'))
-          .map((line: string) => {
-            const [name, vals] = line.split(':');
-            return {
-              name: name.trim(),
-              values: vals.split(',').map((v: string) => v.trim()).filter((v: string) => v !== '')
-            };
-          }).filter((opt: any) => opt.name && opt.values.length > 0)
       };
 
       const res = await fetch(`/api/admin/products/${editProduct.id}`, {
-        method: 'PATCH',
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
@@ -291,7 +265,7 @@ export default function AdminProductsPage() {
               </div>
               
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Prix de Détail (CFA)</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Prix (CFA)</label>
                 <input 
                   required
                   type="number"
@@ -299,17 +273,6 @@ export default function AdminProductsPage() {
                   placeholder="Ex: 15000"
                   value={newProduct.retailPrice}
                   onChange={(e) => setNewProduct({...newProduct, retailPrice: e.target.value})}
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Prix de Gros (CFA)</label>
-                <input 
-                  type="number"
-                  className="w-full h-11 bg-white border-2 border-zinc-200 rounded-xl px-4 text-sm font-bold focus:border-blue-600 outline-none transition-colors"
-                  placeholder="Ex: 12000"
-                  value={newProduct.wholesalePrice}
-                  onChange={(e) => setNewProduct({...newProduct, wholesalePrice: e.target.value})}
                 />
               </div>
 
@@ -335,23 +298,13 @@ export default function AdminProductsPage() {
               </div>
 
               <div className="space-y-1 lg:col-span-3">
-                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Image URL (Séparez par des virgules pour plusieurs images)</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Image URL (plusieurs images séparées par une virgule)</label>
                 <input 
                   type="text"
                   className="w-full h-11 bg-white border-2 border-zinc-200 rounded-xl px-4 text-sm font-bold focus:border-blue-600 outline-none transition-colors"
                   placeholder="Ex: https://image1.jpg, https://image2.jpg"
                   value={newProduct.imageUrl}
                   onChange={(e) => setNewProduct({...newProduct, imageUrl: e.target.value})}
-                />
-              </div>
-
-              <div className="space-y-1 lg:col-span-3">
-                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Variantes (Ex: Taille: S, M, L - une option par ligne)</label>
-                <textarea 
-                  className="w-full h-24 bg-white border-2 border-zinc-200 rounded-xl p-4 text-sm font-bold focus:border-blue-600 outline-none transition-colors resize-none"
-                  placeholder="Taille: S, M, L&#10;Couleur: Rouge, Bleu"
-                  value={newProduct.optionsText}
-                  onChange={(e) => setNewProduct({...newProduct, optionsText: e.target.value})}
                 />
               </div>
 
@@ -409,23 +362,13 @@ export default function AdminProductsPage() {
               </div>
               
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Prix de Détail (CFA)</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Prix (CFA)</label>
                 <input 
                   required
                   type="number"
                   className="w-full h-11 bg-white border-2 border-zinc-200 rounded-xl px-4 text-sm font-bold focus:border-emerald-600 outline-none transition-colors"
                   value={editProduct.retailPrice}
                   onChange={(e) => setEditProduct({...editProduct, retailPrice: e.target.value})}
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Prix de Gros (CFA)</label>
-                <input 
-                  type="number"
-                  className="w-full h-11 bg-white border-2 border-zinc-200 rounded-xl px-4 text-sm font-bold focus:border-emerald-600 outline-none transition-colors"
-                  value={editProduct.wholesalePrice}
-                  onChange={(e) => setEditProduct({...editProduct, wholesalePrice: e.target.value})}
                 />
               </div>
 
@@ -451,22 +394,12 @@ export default function AdminProductsPage() {
               </div>
 
               <div className="space-y-1 lg:col-span-3">
-                <label className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Image URL (Séparez par des virgules pour plusieurs images)</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Image URL (plusieurs images séparées par une virgule)</label>
                 <input 
                   type="text"
                   className="w-full h-11 bg-white border-2 border-zinc-200 rounded-xl px-4 text-sm font-bold focus:border-emerald-600 outline-none transition-colors"
                   value={editProduct.imageUrl}
                   onChange={(e) => setEditProduct({...editProduct, imageUrl: e.target.value})}
-                />
-              </div>
-
-              <div className="space-y-1 lg:col-span-3">
-                <label className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Variantes (Ex: Taille: S, M, L - une option par ligne)</label>
-                <textarea 
-                  className="w-full h-24 bg-white border-2 border-zinc-200 rounded-xl p-4 text-sm font-bold focus:border-emerald-600 outline-none transition-colors resize-none"
-                  placeholder="Taille: S, M, L&#10;Couleur: Rouge, Bleu"
-                  value={editProduct.optionsText}
-                  onChange={(e) => setEditProduct({...editProduct, optionsText: e.target.value})}
                 />
               </div>
 

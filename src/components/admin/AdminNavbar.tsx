@@ -32,8 +32,8 @@ export default function AdminNavbar() {
     setLoggingOut(true);
     try {
       await fetch('/api/admin/auth/logout', { method: 'POST' });
-      // Redirect to the base admin login/register page
-      router.push('/admin/login');
+      // Redirect to the global login page
+      router.push('/login');
     } catch (error) {
       console.error(error);
       setLoggingOut(false);

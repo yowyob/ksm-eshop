@@ -197,35 +197,14 @@ export default function ProductDetailPage() {
                 
                 {/* Prix */}
                 <div className="flex flex-col gap-3 mb-6 p-4 bg-zinc-50 rounded-2xl border border-zinc-100">
-                  {product.wholesalePrice && product.wholesalePrice > 0 ? (
-                    <>
-                      <div className="flex items-center justify-between">
-                        <span className="flex items-center gap-1.5 text-xs font-black text-zinc-500 uppercase tracking-wider">
-                          <Tag className="h-3.5 w-3.5" /> Prix de détail
-                        </span>
-                        <span className="text-xl font-black text-zinc-800">
-                          {formatPrice(product.unitPrice || 0)} <span className="text-sm font-bold text-zinc-400">{product.currency || 'FCFA'}</span>
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between border-t border-zinc-200 pt-3">
-                        <span className="flex items-center gap-1.5 text-xs font-black text-blue-600 uppercase tracking-wider">
-                          <Layers className="h-3.5 w-3.5" /> Prix de gros
-                        </span>
-                        <span className="text-3xl font-black text-blue-600">
-                          {formatPrice(product.wholesalePrice)} <span className="text-lg font-bold text-blue-400">{product.currency || 'FCFA'}</span>
-                        </span>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="flex items-center justify-between">
-                      <span className="flex items-center gap-1.5 text-xs font-black text-zinc-500 uppercase tracking-wider">
-                        <Tag className="h-3.5 w-3.5" /> Prix
-                      </span>
-                      <span className="text-3xl font-black text-zinc-900">
-                        {formatPrice(product.unitPrice || 0)} <span className="text-lg font-bold text-zinc-500">{product.currency || 'FCFA'}</span>
-                      </span>
-                    </div>
-                  )}
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-1.5 text-xs font-black text-zinc-500 uppercase tracking-wider">
+                      <Tag className="h-3.5 w-3.5" /> Prix
+                    </span>
+                    <span className="text-3xl font-black text-zinc-900">
+                      {formatPrice(product.unitPrice || 0)} <span className="text-lg font-bold text-zinc-500">{product.currency || 'FCFA'}</span>
+                    </span>
+                  </div>
                 </div>
 
                 {/* Stock */}
