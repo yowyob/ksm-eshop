@@ -109,7 +109,7 @@ export default function SuperAdminPage() {
       <div className="flex flex-col items-center justify-center min-h-screen bg-zinc-50">
         <Loader2 className="h-12 w-12 text-amber-500 animate-spin mb-4" />
         <p className="font-bold text-zinc-500 uppercase tracking-widest text-sm">
-          Interrogation des {26} organisations du Kernel...
+          Interrogation des organisations du Kernel...
         </p>
       </div>
     );
