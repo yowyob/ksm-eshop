@@ -161,9 +161,6 @@ export default function CartPage() {
                     <div className="flex justify-between items-start mb-2">
                       <div>
                         <h3 className="text-xl font-black text-zinc-900 uppercase italic tracking-tighter">{item.name}</h3>
-                        {hasRequiredVariants && !currentSelectedVal && (
-                          <span className="text-red-500 font-bold text-xs uppercase tracking-wider block mt-1">⚠️ Variante Requise</span>
-                        )}
                       </div>
                       <p className="text-xl font-black text-blue-600 tracking-tighter">{formatPrice(item.price * item.quantity)}</p>
                     </div>
