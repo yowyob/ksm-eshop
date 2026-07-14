@@ -62,7 +62,8 @@ export default function ProductsPage() {
             isFeatured: true,
             imageUrl: kp.photo || kp.imageUrl || '',
             price: kp.unitPrice || 0,
-            stock: kp.quantity || 0
+            stock: kp.quantity || 0,
+            variantLabel: (kp as any).variantLabel || 'Standard'
           }));
 
           setProducts(adaptedProducts);
