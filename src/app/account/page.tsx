@@ -6,7 +6,7 @@ import { useCustomerAuthStore } from '@/store/useCustomerAuthStore';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { User, Phone, Mail, Loader2, Save, CheckCircle, ArrowLeft } from 'lucide-react';
-import GlobalNavbar from '@/components/global/GlobalNavbar';
+import { GlobalNavbar } from '@/components/global/GlobalNavbar';
 
 export default function AccountPage() {
   const router = useRouter();
