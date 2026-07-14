@@ -9,6 +9,8 @@ import { useProductStore } from '@/store/useProductStore';
 import { useInventoryStore } from '@/store/useInventoryStore';
 import Link from 'next/link';
 import { ShoppingCart, Eye, Package } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useCustomerAuthStore } from '@/store/useCustomerAuthStore';
 
 interface ProductCardProps {
   product: Product;

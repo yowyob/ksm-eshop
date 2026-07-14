@@ -99,7 +99,12 @@ export default function AccountPage() {
 
   return (
     <div className="min-h-screen bg-zinc-50 flex flex-col font-sans">
-      <GlobalNavbar />
+      <GlobalNavbar 
+        organizations={[]}
+        onSearch={() => {}}
+        onCategorySelect={() => {}}
+        selectedCategory={null}
+      />
 
       <main className="flex-1 w-full max-w-[800px] mx-auto px-4 py-12">
         <div className="mb-8 flex items-center justify-between">

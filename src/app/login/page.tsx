@@ -1,16 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Building2, ArrowRight, Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { Building2, ArrowRight, Eye, EyeOff, ArrowLeft, Loader2 } from 'lucide-react';
 
 import { useCustomerAuthStore } from '@/store/useCustomerAuthStore';
 import { useCartStore } from '@/store/useCartStore';
 import { useAuthStore } from '@/store/useAuthStore';
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
@@ -55,14 +55,10 @@ export default function LoginPage() {
         const data = await res.json();
         
         if (data.success || res.ok) {
-          // Mettre à jour le store d'authentification immédiatement
           if (data.data) {
             useCustomerAuthStore.getState().setAuthenticated(true, data.data);
-            // Initialiser le panier du client à 0 (vide) lors de sa connexion
             useCartStore.getState().clearCart();
           }
-          
-          // Rediriger vers l'url de redirection ou l'accueil
           const redirectUrl = searchParams.get('redirect') || `/`;
           router.push(redirectUrl);
         } else {
@@ -208,5 +204,17 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-zinc-50">
+        <Loader2 className="h-10 w-10 text-blue-600 animate-spin" />
+      </div>
+    }>
+      <LoginContent />
+    </Suspense>
   );
 }
