@@ -133,7 +133,7 @@ export default function UserProfileModal({ isOpen, onClose, tenantId }: UserProf
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
                     required
-                    placeholder="Ex: Atena"
+                    placeholder="Ex: Jean"
                     className="h-10 w-full rounded-xl border-2 border-zinc-200 bg-zinc-50 pl-10 pr-4 text-xs font-bold focus:border-zinc-900 focus:outline-none transition-all"
                   />
                 </div>
@@ -149,7 +149,7 @@ export default function UserProfileModal({ isOpen, onClose, tenantId }: UserProf
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
                     required
-                    placeholder="Ex: Ornella"
+                    placeholder="Ex: Nguemo"
                     className="h-10 w-full rounded-xl border-2 border-zinc-200 bg-zinc-50 pl-10 pr-4 text-xs font-bold focus:border-zinc-900 focus:outline-none transition-all"
                   />
                 </div>
