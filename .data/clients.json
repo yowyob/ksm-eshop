@@ -190,5 +190,38 @@
     "payTermNumber": 0,
     "payTermType": "DAYS",
     "id": "f30457b0-4ec0-449c-8339-55d2ed5da191"
+  },
+  {
+    "partyId": "2bd67665-d081-40e9-b0dd-391cad655f38",
+    "organizationId": "d9d6a900-a3a6-4572-8349-415ad008b976",
+    "partyType": "ACTOR",
+    "code": "C-2bd67665",
+    "name": "kkl921",
+    "displayName": "kkl921",
+    "longName": "kkl921",
+    "accountingAccount": "client-2bd67665",
+    "uniqueIdentificationNumber": "2bd67665-d081-40e9-b0dd-391cad655f38",
+    "segment": "CUSTOMER",
+    "roles": [
+      "CUSTOMER"
+    ],
+    "type": "INDIVIDUAL",
+    "legalForm": "PERSON",
+    "thirdPartyFamily": "CLIENTS",
+    "classification": "STANDARD",
+    "enabled": true,
+    "prospect": false,
+    "vatSubject": false,
+    "authorizedPaymentMethods": [
+      "CASH",
+      "BANK_TRANSFER"
+    ],
+    "authorizedCreditLimit": 0,
+    "maxDiscountRate": 0,
+    "operationsBalance": 0,
+    "openingBalance": 0,
+    "payTermNumber": 0,
+    "payTermType": "DAYS",
+    "id": "147d9df4-7b51-4616-8053-8a340ca2119a"
   }
 ]

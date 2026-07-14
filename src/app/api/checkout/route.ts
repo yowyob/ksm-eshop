@@ -198,14 +198,17 @@ export async function POST(request: NextRequest) {
               const currentQ = product.quantity || 0;
               const newQ = Math.max(0, currentQ - (item.quantity || 1));
               
-              // Inclure les champs requis pour la mise à jour de produit sur le Kernel
+              // Inclure tous les champs requis et existants pour la mise à jour sur le Kernel
               const payload = {
                 organizationId: tenantId,
                 sku: product.sku || `SKU-${pId.slice(0, 8)}`,
                 name: product.name,
                 variantLabel: product.variantLabel || 'Standard',
                 unitPrice: product.unitPrice || 1,
-                quantity: newQ
+                quantity: newQ,
+                status: product.status || 'ACTIVE',
+                familyCode: product.familyCode || 'STANDARD',
+                currency: product.currency || 'FCFA'
               };
 
               const updateRes = await backendFetch(`/api/products/${pId}`, {
