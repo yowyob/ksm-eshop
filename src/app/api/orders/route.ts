@@ -176,6 +176,68 @@ export async function GET(request: NextRequest) {
       };
     });
 
+    // 3b. Résoudre les noms des produits pour les lignes de commande
+    // Rassembler tous les productIds de toutes les commandes récupérées
+    const productIds: string[] = [];
+    allOrders.forEach((o: any) => {
+      const lines = o.lines || [];
+      lines.forEach((line: any) => {
+        if (line.productId) productIds.push(line.productId);
+      });
+    });
+
+    const uniqueProductIds = [...new Set(productIds)];
+    const productsMap: Record<string, string> = {};
+
+    if (uniqueProductIds.length > 0) {
+      // Charger la liste complète des produits des organisations concernées
+      // pour faire une correspondance rapide des noms locaux
+      await Promise.allSettled(
+        orgIds.map(async (orgId) => {
+          try {
+            const pRes = await backendFetch(`/api/products?organizationId=${orgId}&size=1000`, {
+              method: 'GET',
+              headers: {
+                Authorization: `Bearer ${adminToken}`,
+                'X-Organization-Id': orgId
+              }
+            });
+            if (pRes.success && pRes.data) {
+              const list = Array.isArray(pRes.data) ? pRes.data : (pRes.data.content || pRes.data.data || []);
+              list.forEach((p: any) => {
+                if (p.id) productsMap[p.id] = p.name;
+              });
+            }
+          } catch (e) {
+            // ignore
+          }
+        })
+      );
+    }
+
+    // Injecter les noms résolus de produits et les options dans chaque ligne de commande
+    allOrders = allOrders.map((o: any) => {
+      const lines = o.lines || [];
+      const enrichedLines = lines.map((line: any) => {
+        // Résoudre le nom d'affichage à partir du map
+        const prodName = productsMap[line.productId] || `Produit (${line.productId.slice(0, 8)})`;
+        
+        // Si l'identifiant possède un suffixe de variante (ex: ID-Option), le décoder pour l'affichage des options
+        let selectedOptions: Record<string, string> = {};
+        
+        return {
+          ...line,
+          name: prodName,
+          selectedOptions: selectedOptions
+        };
+      });
+
+      return {
+        ...o,
+        lines: enrichedLines
+      };
+    });
+
     // 4. Si customerId fourni, filtrer par correspondance cross-org partyId
     if (customerId) {
       const allCustomerIds = await findThirdPartyIdsByPartyId(customerId, orgIds, adminToken);
