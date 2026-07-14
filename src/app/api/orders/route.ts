@@ -154,6 +154,22 @@ export async function GET(request: NextRequest) {
       (v, i, a) => a.findIndex((t) => t.id === v.id) === i
     );
 
+    // Charger les commandes locales pour croiser les dates manquantes
+    const { getLocalOrders } = require('@/lib/local-db');
+    const localOrders = getLocalOrders();
+
+    allOrders = allOrders.map(order => {
+      const matchedLocal = localOrders.find((lo: any) => 
+        lo.id === order.id || 
+        lo.orderNumber === order.orderNumber || 
+        lo.documentNumber === order.documentNumber
+      );
+      return {
+        ...order,
+        createdAt: order.createdAt || matchedLocal?.createdAt || new Date().toISOString()
+      };
+    });
+
     // 2. Résoudre les noms dans TOUTES les orgs (pas juste la première)
     const tpIds = allOrders
       .map((o: any) => o.customerThirdPartyId || o.counterpartyThirdPartyId)
