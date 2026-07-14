@@ -14,7 +14,8 @@ import {
   Boxes,
   Building2,
   Users,
-  ShieldCheck
+  ShieldCheck,
+  ArrowLeft
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -44,21 +45,12 @@ export default function AdminSidebar({ tenant }: AdminSidebarProps) {
 
   const navItems = [
     { label: 'Tableau de bord', icon: LayoutDashboard, href: `/admin/${tenant.slug}` },
-    { label: 'Organisations', icon: Building2, href: `/admin/organizations` },
     { label: 'Clients', icon: Users, href: `/admin/${tenant.slug}/clients` },
     { label: 'Produits', icon: Package, href: `/admin/${tenant.slug}/products` },
     { label: 'Commandes', icon: ShoppingCart, href: `/admin/${tenant.slug}/orders` },
     { label: 'Paramètres', icon: Settings, href: `/admin/${tenant.slug}/settings` },
     { label: 'Abonnement', icon: Settings, href: `/admin/${tenant.slug}/subscription` },
   ];
-
-  if (
-    user?.email?.toLowerCase().trim() === 'atenaornella@gmail.com' ||
-    user?.username?.toLowerCase().trim() === 'atenaornella@gmail.com' ||
-    user?.name?.toLowerCase().trim() === 'atenaornella@gmail.com'
-  ) {
-    navItems.push({ label: 'Super Admin', icon: ShieldCheck, href: `/admin/super-admin` });
-  }
 
  return (
  <aside className="w-64 border-r bg-white flex flex-col shadow-sm">
@@ -77,11 +69,20 @@ export default function AdminSidebar({ tenant }: AdminSidebarProps) {
       </p>
     </div>
 
- <nav className="flex-1 px-4 space-y-1">
- {navItems.map((item) => (
- <Link
- key={item.href}
- href={item.href}
+  <nav className="flex-1 px-4 space-y-2">
+    {/* BOUTON DE RETOUR GLOBAL (ACCUEIL) */}
+    <Link
+      href="/admin/organizations"
+      className="inline-flex items-center justify-center h-10 w-10 rounded-xl text-zinc-700 bg-zinc-100 hover:bg-zinc-200 border-2 border-zinc-900 shadow-sm transition-all mb-4"
+      title="Retour aux organisations"
+    >
+      <ArrowLeft className="h-5 w-5 shrink-0 text-blue-600" />
+    </Link>
+
+    {navItems.map((item) => (
+      <Link
+        key={item.href}
+        href={item.href}
  className={cn(
  "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
  pathname === item.href 

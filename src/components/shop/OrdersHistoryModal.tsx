@@ -26,27 +26,31 @@ export default function OrdersHistoryModal({ isOpen, onClose, userName, userEmai
           const data = await res.json();
           if (data.success && data.data) {
             let rawData = Array.isArray(data.data) ? data.data : (data.data.content || data.data.data || []);
-            const mappedOrders = rawData.map((o: any) => ({
-              id: o.documentNumber || o.orderNumber || o.id,
-              customerName: o.counterparty?.name || o.customerThirdPartyId || o.counterpartyThirdPartyId || o.customerName || 'Client',
-              customerId: o.counterparty?.id || o.customerThirdPartyId || o.counterpartyThirdPartyId || o.customerId,
-              total: o.totalAmount || o.subtotalAmount || o.total || 0,
-              status: o.status?.toLowerCase() || 'pending',
-              createdAt: o.createdAt,
-              date: o.createdAt ? new Date(o.createdAt).toLocaleDateString('fr-FR', {
-                hour: '2-digit',
-                minute: '2-digit',
-              }) : (o.date || new Date().toLocaleDateString('fr-FR')),
-              tenantId: o.organizationId || o.tenantId || 't1', 
-              items: o.lines || o.items || [],
-            }));
-            
-            // Trier par date de création décroissante (la plus récente en premier)
-            const sortedOrders = mappedOrders.sort((a: any, b: any) => {
-              const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-              const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-              return timeB - timeA;
+            const mappedOrders = rawData.map((o: any) => {
+              const orderNumMatch = (o.documentNumber || o.orderNumber || '').match(/\d+/);
+              const num = orderNumMatch ? parseInt(orderNumMatch[0], 10) : 0;
+              
+              // Date réelle ou vide par défaut si manquante
+              const dateString = o.createdAt 
+                ? new Date(o.createdAt).toLocaleDateString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+                : '';
+
+              return {
+                id: o.documentNumber || o.orderNumber || o.id,
+                orderNum: num,
+                customerName: o.counterparty?.name || o.customerThirdPartyId || o.counterpartyThirdPartyId || o.customerName || 'Client',
+                customerId: o.counterparty?.id || o.customerThirdPartyId || o.counterpartyThirdPartyId || o.customerId,
+                total: o.totalAmount || o.subtotalAmount || o.total || 0,
+                status: o.status?.toLowerCase() || 'pending',
+                createdAt: o.createdAt,
+                date: dateString,
+                tenantId: o.organizationId || o.tenantId || 't1', 
+                items: o.lines || o.items || [],
+              };
             });
+            
+            // Trier par le numéro de commande décroissant (plus récents en premier)
+            const sortedOrders = mappedOrders.sort((a: any, b: any) => b.orderNum - a.orderNum);
             
             if (!customerId) {
                setCustomerOrders(sortedOrders.filter((o: any) => 

@@ -89,10 +89,17 @@ async function findThirdPartyIdsByPartyId(
   return matched;
 }
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const organizationId = searchParams.get('organizationId');
   const customerId = searchParams.get('customerId');
+
+  const noCacheHeaders = {
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Pragma': 'no-cache'
+  };
 
   try {
     const adminToken = await getKernelToken();
@@ -153,22 +160,6 @@ export async function GET(request: NextRequest) {
     allOrders = allOrders.filter(
       (v, i, a) => a.findIndex((t) => t.id === v.id) === i
     );
-
-    // Charger les commandes locales pour croiser les dates manquantes
-    const { getLocalOrders } = require('@/lib/local-db');
-    const localOrders = getLocalOrders();
-
-    allOrders = allOrders.map(order => {
-      const matchedLocal = localOrders.find((lo: any) => 
-        lo.id === order.id || 
-        lo.orderNumber === order.orderNumber || 
-        lo.documentNumber === order.documentNumber
-      );
-      return {
-        ...order,
-        createdAt: order.createdAt || matchedLocal?.createdAt || new Date().toISOString()
-      };
-    });
 
     // 2. Résoudre les noms dans TOUTES les orgs (pas juste la première)
     const tpIds = allOrders

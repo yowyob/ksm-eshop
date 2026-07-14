@@ -3,10 +3,16 @@ import { backendFetch } from '@/lib/api-client';
 import { getLocalUsers } from '@/lib/local-db';
 import { getKernelToken } from '@/lib/kernel-auth';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const adminToken = await getKernelToken();
-    const authHeader = { 'Authorization': `Bearer ${adminToken}` };
+    const authHeader = { 
+      'Authorization': `Bearer ${adminToken}`,
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache'
+    };
 
     // ── 1. Fetch ALL organisations from Kernel ──────────────────────────────
     const orgsRes = await backendFetch('/api/organizations?size=200', {
@@ -62,10 +68,6 @@ export async function GET(request: NextRequest) {
     // ── 3. Consolider et dédupliquer par ID ─────────────────────────────────
     const seenIds = new Set<string>();
     let allOrders: any[] = [];
-    
-    // Charger les commandes locales pour avoir les dates et détails
-    const { getLocalOrders } = require('@/lib/local-db');
-    const localOrders = getLocalOrders();
 
     for (const result of orgOrderResults) {
       if (result.status === 'fulfilled') {
@@ -73,18 +75,8 @@ export async function GET(request: NextRequest) {
           const key = order.id || order.orderNumber || order.documentNumber;
           if (key && seenIds.has(key)) continue;
           if (key) seenIds.add(key);
-
-          // Tenter de trouver la commande correspondante en local pour récupérer sa date
-          const matchedLocal = localOrders.find((lo: any) => 
-            lo.id === order.id || 
-            lo.orderNumber === order.orderNumber || 
-            lo.documentNumber === order.documentNumber
-          );
-
-          allOrders.push({
-            ...order,
-            createdAt: order.createdAt || matchedLocal?.createdAt || new Date().toISOString()
-          });
+          
+          allOrders.push(order);
         }
       }
     }

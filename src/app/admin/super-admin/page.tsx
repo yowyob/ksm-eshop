@@ -103,11 +103,12 @@ export default function SuperAdminPage() {
       (o._customerName || '').toLowerCase().includes(q)
     );
   }).sort((a, b) => {
-    const rawA = a.createdAt || a.orderDate || a.date || a.createdDate || a.createdTime || 0;
-    const rawB = b.createdAt || b.orderDate || b.date || b.createdDate || b.createdTime || 0;
-    const timeA = rawA ? new Date(rawA).getTime() : 0;
-    const timeB = rawB ? new Date(rawB).getTime() : 0;
-    return timeB - timeA;
+    // Extraire le numéro de commande numérique (ex: KSM-878462 -> 878462)
+    const getOrderNum = (order: any): number => {
+      const match = (order.orderNumber || order.documentNumber || '').match(/\d+/);
+      return match ? parseInt(match[0], 10) : 0;
+    };
+    return getOrderNum(b) - getOrderNum(a);
   });
 
   if (loading) {
@@ -259,10 +260,11 @@ export default function SuperAdminPage() {
                       }
                       amount = amount || 0;
                       const commission = amount * 0.05;
+                      // Afficher uniquement la vraie date du Kernel, ou laisser vide si non disponible
                       const rawDate = order.createdAt || order.orderDate || order.date || order.createdDate || order.createdTime || null;
                       const date = rawDate
                         ? new Date(rawDate).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
-                        : '—';
+                        : '';
 
                       const customerName = order._customerName || '—';
 
