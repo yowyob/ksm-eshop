@@ -256,7 +256,7 @@ export default function CartPage() {
                       Sélectionnez les variantes
                     </Button>
                     <p className="text-red-500 text-[10px] font-bold uppercase tracking-wider text-center mt-2">
-                      ⚠️ Certaines variantes d&apos;articles n&apos;ont pas été choisies.
+                      Certaines variantes d&apos;articles n&apos;ont pas été choisies.
                     </p>
                   </div>
                 )}
