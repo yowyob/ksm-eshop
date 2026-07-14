@@ -23,6 +23,20 @@ export async function POST(request: NextRequest) {
 
     const data = await res.json();
 
+    // Détecter si le Kernel indique qu'un code MFA / OTP est requis pour cette session.
+    // Typiquement le Kernel retourne success: true ou success: false avec un code d'erreur MFA_REQUIRED
+    // ou data.mfaRequired = true
+    const mfaRequired = data?.data?.mfaRequired || data?.mfaRequired || data?.errorCode === 'MFA_REQUIRED' || data?.message?.includes('MFA') || data?.message?.includes('OTP') || (data?.data && !data?.data?.accessToken && data?.data?.sessionId);
+
+    if (mfaRequired) {
+      return Response.json({
+        success: true,
+        requiresMfa: true,
+        sessionId: data?.data?.sessionId || data?.sessionId || null,
+        message: 'Un code de vérification (OTP) est requis pour ce compte.'
+      });
+    }
+
     if (!res.ok || !data.success) {
       return Response.json(
         { success: false, message: data.message || 'Identifiants invalides.' },
