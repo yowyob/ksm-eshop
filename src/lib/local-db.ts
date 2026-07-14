@@ -172,3 +172,50 @@ export const saveLocalUser = (user: any): boolean => {
   }
 };
 
+export const updateLocalUserAndClient = (email: string, firstName: string, lastName: string, phoneNumber: string): boolean => {
+  try {
+    initDb();
+    
+    // 1. Mettre à jour l'utilisateur local dans users.json
+    if (fs.existsSync(USERS_FILE)) {
+      const users = getLocalUsers();
+      const updatedUsers = users.map((u: any) => {
+        if (u.email === email) {
+          return {
+            ...u,
+            name: `${firstName} ${lastName}`.trim(),
+            firstName,
+            lastName,
+            phoneNumber
+          };
+        }
+        return u;
+      });
+      fs.writeFileSync(USERS_FILE, JSON.stringify(updatedUsers, null, 2));
+    }
+
+    // 2. Mettre à jour les clients/tiers locaux dans clients.json
+    const clients = getLocalClients();
+    const updatedClients = clients.map((c: any) => {
+      // Si le code ou uniqueIdentificationNumber ou accountingAccount contient l'email
+      if (c.code === email || c.uniqueIdentificationNumber === email || c.accountingAccount === email) {
+        return {
+          ...c,
+          name: `${firstName} ${lastName}`.trim(),
+          displayName: `${firstName} ${lastName}`.trim(),
+          longName: `${firstName} ${lastName}`.trim(),
+          phoneNumber
+        };
+      }
+      return c;
+    });
+    fs.writeFileSync(CLIENTS_FILE, JSON.stringify(updatedClients, null, 2));
+
+    console.log('[LOCAL-DB] Profil mis à jour localement pour:', email);
+    return true;
+  } catch (error) {
+    console.error('[LOCAL-DB] Erreur lors de la mise à jour locale du profil:', error);
+    return false;
+  }
+};
+
