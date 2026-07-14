@@ -32,6 +32,7 @@ export default function OrdersHistoryModal({ isOpen, onClose, userName, userEmai
               customerId: o.counterparty?.id || o.customerThirdPartyId || o.counterpartyThirdPartyId || o.customerId,
               total: o.totalAmount || o.subtotalAmount || o.total || 0,
               status: o.status?.toLowerCase() || 'pending',
+              createdAt: o.createdAt,
               date: o.createdAt ? new Date(o.createdAt).toLocaleDateString('fr-FR', {
                 hour: '2-digit',
                 minute: '2-digit',
@@ -40,14 +41,21 @@ export default function OrdersHistoryModal({ isOpen, onClose, userName, userEmai
               items: o.lines || o.items || [],
             }));
             
+            // Trier par date de création décroissante (la plus récente en premier)
+            const sortedOrders = mappedOrders.sort((a: any, b: any) => {
+              const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+              const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+              return timeB - timeA;
+            });
+            
             if (!customerId) {
-               setCustomerOrders(mappedOrders.filter((o: any) => 
+               setCustomerOrders(sortedOrders.filter((o: any) => 
                  o.customerName.toLowerCase().includes(userName.toLowerCase()) || 
                  o.customerName.toLowerCase() === 'client ksm' ||
                  o.customerName === ''
                ));
             } else {
-               setCustomerOrders(mappedOrders);
+               setCustomerOrders(sortedOrders);
             }
           } else {
              setCustomerOrders([]);
