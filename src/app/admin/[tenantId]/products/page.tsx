@@ -8,7 +8,6 @@ import {
   Plus, 
   Search, 
   Edit2, 
-  Trash2, 
   Package, 
   X,
   Loader2,
@@ -206,20 +205,42 @@ export default function AdminProductsPage() {
     }
   };
 
-  const handleDelete = async (productId: string, productName: string) => {
-    if (!confirm(`Êtes-vous sûr de vouloir supprimer définitivement le produit "${productName}" ?`)) return;
+  const handleToggleStatus = async (product: KernelProduct) => {
+    const newStatus = product.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+    const actionLabel = newStatus === 'ACTIVE' ? 'réactiver' : 'désactiver';
+    if (!confirm(`Voulez-vous vraiment ${actionLabel} le produit "${product.name}" ?`)) return;
     
     setError(null);
     try {
-      const res = await fetch(`/api/admin/products/${productId}?organizationId=${tenantId}`, {
-        method: 'DELETE'
+      // Pour modifier le statut, on réutilise le endpoint PUT/PATCH de l'admin produit
+      // en lui passant l'ensemble de l'objet produit avec le statut modifié
+      const payload = {
+        organizationId: tenantId,
+        sku: (product as any).sku || `SKU-${product.id.slice(0, 8)}`,
+        name: product.name,
+        description: product.description || '',
+        variantLabel: (product as any).variantLabel || 'Standard',
+        unitPrice: product.unitPrice || product.price || 1,
+        retailPrice: product.unitPrice || product.price || 1,
+        photo: product.photo || (product as any).imageUrl || '',
+        quantity: product.quantity !== undefined ? product.quantity : 0,
+        status: newStatus,
+        currency: product.currency || 'FCFA',
+        familyCode: product.categoryCode || product.familyCode || 'STANDARD',
+        categoryCode: product.categoryCode || product.familyCode || 'STANDARD',
+      };
+
+      const res = await fetch(`/api/admin/products/${product.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
       });
       const data = await res.json();
       
       if (data.success || res.ok) {
         await fetchProducts();
       } else {
-        setError(data.message || 'Erreur lors de la suppression.');
+        setError(data.message || `Erreur lors de la modification du statut.`);
       }
     } catch (err: any) {
       setError(err.message || 'Erreur réseau.');
@@ -540,6 +561,13 @@ export default function AdminProductsPage() {
                       <h3 className="font-black text-lg text-zinc-900 truncate">{p.name}</h3>
                       <p className="text-xs text-zinc-500 font-medium line-clamp-1 mb-2">{p.description || 'Aucune description'}</p>
                       <div className="flex flex-wrap gap-2">
+                        <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md ${
+                          p.status === 'ACTIVE' 
+                            ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' 
+                            : 'bg-red-100 text-red-700 border border-red-200'
+                        }`}>
+                          {p.status === 'ACTIVE' ? 'Actif' : 'Désactivé'}
+                        </span>
                         <span className="bg-zinc-100 text-zinc-600 text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md">
                           Stock: {p.quantity || 0}
                         </span>
@@ -561,8 +589,18 @@ export default function AdminProductsPage() {
                         <Button variant="outline" size="sm" className="h-8 border-2 font-black uppercase tracking-widest text-[10px] hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200" onClick={() => openEditForm(p)}>
                           <Edit2 className="h-3 w-3 mr-1" /> Éditer
                         </Button>
-                        <Button variant="outline" size="sm" className="h-8 border-2 font-black uppercase tracking-widest text-[10px] text-red-500 hover:bg-red-50 hover:border-red-200" onClick={() => handleDelete(p.id, p.name)}>
-                          <Trash2 className="h-3 w-3 mr-1" /> Supprimer
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className={`h-8 border-2 font-black uppercase tracking-widest text-[10px] ${
+                            p.status === 'ACTIVE'
+                              ? 'text-red-500 hover:bg-red-50 hover:border-red-200'
+                              : 'text-emerald-600 hover:bg-emerald-50 hover:border-emerald-200'
+                          }`}
+                          onClick={() => handleToggleStatus(p)}
+                        >
+                          <Package className="h-3 w-3 mr-1" />
+                          {p.status === 'ACTIVE' ? 'Désactiver' : 'Activer'}
                         </Button>
                       </div>
                     </div>

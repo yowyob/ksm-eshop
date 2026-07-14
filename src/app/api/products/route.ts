@@ -197,13 +197,17 @@ export async function GET(request: NextRequest) {
     const allProductsArrays = await Promise.all(productPromises);
     const allProducts = allProductsArrays.flat();
 
-    if (allProducts.length === 0) {
-      return Response.json({ success: true, data: mockProducts }); // fallback if empty
+    // Filtre pour ne garder que les produits actifs (ACTIVE)
+    const activeProducts = allProducts.filter((p: any) => p.status === 'ACTIVE');
+
+    if (activeProducts.length === 0) {
+      // Filtrer aussi le mock par défaut pour s'assurer qu'il est actif
+      return Response.json({ success: true, data: mockProducts.filter(p => p.status === 'ACTIVE') }); 
     }
 
     return Response.json({
       success: true,
-      data: allProducts
+      data: activeProducts
     });
   }
 
@@ -212,7 +216,7 @@ export async function GET(request: NextRequest) {
     params: {
       organizationId,
       familyCode,
-      status,
+      status: 'ACTIVE', // Forcer le statut ACTIVE lors de la requête au backend
     },
   });
 
@@ -222,34 +226,51 @@ export async function GET(request: NextRequest) {
     const updatedMock = orgMockProducts.map(p => {
        const deduction = reserved[p.id] || 0;
        return { ...p, quantity: Math.max(0, ((p as any).quantity || 0) - deduction) };
-    });
+     });
+    // Filtre les mocks inactifs
+    const activeMocks = updatedMock.filter(p => p.status === 'ACTIVE');
     return Response.json({
       success: true,
-      data: updatedMock.length > 0 ? updatedMock : mockProducts // Fallback to all mocks if empty for demo
+      data: activeMocks.length > 0 ? activeMocks : mockProducts.filter(p => p.status === 'ACTIVE')
     });
   }
   
   if (result.success && result.data) {
     const reserved = getLocalReservedQuantities(organizationId);
     let content = result.data.content || result.data;
+    let list: any[] = Array.isArray(content) ? content : [];
     
-    if (Array.isArray(content)) {
-      content.forEach((p: any) => {
-        if (reserved[p.id]) {
-          if (typeof p.quantity === 'number') p.quantity = Math.max(0, p.quantity - reserved[p.id]);
-          if (typeof p.inStock === 'number') p.inStock = Math.max(0, p.inStock - reserved[p.id]);
-          if (p.variants && Array.isArray(p.variants)) {
-             p.variants.forEach((v: any) => {
-               if (reserved[v.id]) {
-                 if (typeof v.quantity === 'number') v.quantity = Math.max(0, v.quantity - reserved[v.id]);
-                 if (typeof v.inStock === 'number') v.inStock = Math.max(0, v.inStock - reserved[v.id]);
-               }
-             });
-          }
+    // Filtrer pour n'avoir que les produits actifs (ACTIVE)
+    const activeContent = list.filter((p: any) => p.status === 'ACTIVE');
+    
+    activeContent.forEach((p: any) => {
+      if (reserved[p.id]) {
+        if (typeof p.quantity === 'number') p.quantity = Math.max(0, p.quantity - reserved[p.id]);
+        if (typeof p.inStock === 'number') p.inStock = Math.max(0, p.inStock - reserved[p.id]);
+        if (p.variants && Array.isArray(p.variants)) {
+           p.variants.forEach((v: any) => {
+             if (reserved[v.id]) {
+               if (typeof v.quantity === 'number') v.quantity = Math.max(0, v.quantity - reserved[v.id]);
+               if (typeof v.inStock === 'number') v.inStock = Math.max(0, v.inStock - reserved[v.id]);
+             }
+           });
         }
+      }
+    });
+
+    // Retourner uniquement la liste des produits actifs
+    if (Array.isArray(result.data)) {
+      return Response.json({ ...result, data: activeContent });
+    } else if (result.data.content) {
+      return Response.json({ 
+        ...result, 
+        data: { 
+          ...result.data, 
+          content: activeContent 
+        } 
       });
     }
-    return Response.json({ ...result, data: result.data });
+    return Response.json({ ...result, data: activeContent });
   }
 
   return Response.json(result);
