@@ -54,6 +54,7 @@ export default function AdminSidebar({ tenant }: AdminSidebarProps) {
 
   if (
     user?.email?.toLowerCase().trim() === 'atenaornella@gmail.com' ||
+    user?.username?.toLowerCase().trim() === 'atenaornella@gmail.com' ||
     user?.name?.toLowerCase().trim() === 'atenaornella@gmail.com'
   ) {
     navItems.push({ label: 'Super Admin', icon: ShieldCheck, href: `/admin/super-admin` });

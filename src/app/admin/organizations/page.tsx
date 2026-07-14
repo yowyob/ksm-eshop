@@ -85,7 +85,9 @@ export default function OrganizationsPage() {
                 <span className="text-xs font-medium text-zinc-500 mr-4">
                   Connecté en tant que: <strong className="text-zinc-900">{user?.name || 'Inconnu'}</strong>
                 </span>
-                {user && user.email === 'atenaornella@gmail.com' && (
+                {(user?.email?.toLowerCase().trim() === 'atenaornella@gmail.com' || 
+                  user?.username?.toLowerCase().trim() === 'atenaornella@gmail.com' || 
+                  user?.name?.toLowerCase().trim() === 'atenaornella@gmail.com') && (
                   <Button onClick={() => router.push('/admin/super-admin')} className="bg-amber-500 hover:bg-amber-600 text-white font-black uppercase tracking-widest text-xs shadow-lg shadow-amber-500/20">
                     <ShieldCheck className="h-4 w-4 mr-2" />
                     Super Admin
