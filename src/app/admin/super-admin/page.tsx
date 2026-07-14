@@ -103,8 +103,10 @@ export default function SuperAdminPage() {
       (o._customerName || '').toLowerCase().includes(q)
     );
   }).sort((a, b) => {
-    const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-    const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    const rawA = a.createdAt || a.orderDate || a.date || a.createdDate || a.createdTime || 0;
+    const rawB = b.createdAt || b.orderDate || b.date || b.createdDate || b.createdTime || 0;
+    const timeA = rawA ? new Date(rawA).getTime() : 0;
+    const timeB = rawB ? new Date(rawB).getTime() : 0;
     return timeB - timeA;
   });
 
@@ -257,9 +259,10 @@ export default function SuperAdminPage() {
                       }
                       amount = amount || 0;
                       const commission = amount * 0.05;
-                      const date = order.createdAt
-                        ? new Date(order.createdAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
-                        : (order.date || '—');
+                      const rawDate = order.createdAt || order.orderDate || order.date || order.createdDate || order.createdTime || null;
+                      const date = rawDate
+                        ? new Date(rawDate).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
+                        : '—';
 
                       const customerName = order._customerName || '—';
 
