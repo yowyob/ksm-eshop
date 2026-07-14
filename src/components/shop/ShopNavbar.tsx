@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation';
 import { useCustomerAuthStore } from '@/store/useCustomerAuthStore';
 import BankAccountModal from './BankAccountModal';
 import OrdersHistoryModal from './OrdersHistoryModal';
+import UserProfileModal from './UserProfileModal';
 
 interface ShopNavbarProps {
   tenant: Tenant;
@@ -27,6 +28,7 @@ export default function ShopNavbar({ tenant }: ShopNavbarProps) {
   const [showDropdown, setShowDropdown] = useState(false);
   const [showBankModal, setShowBankModal] = useState(false);
   const [showOrdersModal, setShowOrdersModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   useEffect(() => {
     setIsMounted(true); // eslint-disable-line react-hooks/set-state-in-effect
@@ -120,6 +122,13 @@ export default function ShopNavbar({ tenant }: ShopNavbarProps) {
               {showDropdown && (
                 <div className="absolute right-0 mt-2 w-56 rounded-2xl border-2 border-zinc-900 bg-white shadow-2xl z-50 p-2 py-3 animate-in slide-in-from-top-2 duration-150">
                   <button 
+                    onClick={() => { setShowProfileModal(true); setShowDropdown(false); }}
+                    className="w-full text-left px-4 py-2.5 text-xs font-black uppercase tracking-wider text-zinc-700 hover:text-zinc-900 hover:bg-zinc-50 rounded-xl transition-colors flex items-center gap-2.5 cursor-pointer"
+                  >
+                    <User className="h-4 w-4 text-blue-600" />
+                    Mon Profil
+                  </button>
+                  <button 
                     onClick={() => { setShowBankModal(true); setShowDropdown(false); }}
                     className="w-full text-left px-4 py-2.5 text-xs font-black uppercase tracking-wider text-zinc-700 hover:text-zinc-900 hover:bg-zinc-50 rounded-xl transition-colors flex items-center gap-2.5 cursor-pointer"
                   >
@@ -182,6 +191,11 @@ export default function ShopNavbar({ tenant }: ShopNavbarProps) {
             isOpen={showBankModal}
             onClose={() => setShowBankModal(false)}
             userName={displayName}
+          />
+          <UserProfileModal
+            isOpen={showProfileModal}
+            onClose={() => setShowProfileModal(false)}
+            tenantId={tenant.id}
           />
         </>
       )}
