@@ -47,7 +47,6 @@ export default function AdminSidebar({ tenant }: AdminSidebarProps) {
     { label: 'Organisations', icon: Building2, href: `/admin/organizations` },
     { label: 'Clients', icon: Users, href: `/admin/${tenant.slug}/clients` },
     { label: 'Produits', icon: Package, href: `/admin/${tenant.slug}/products` },
-    { label: 'Stocks & Entrepôts', icon: Boxes, href: `/admin/${tenant.slug}/inventory` },
     { label: 'Commandes', icon: ShoppingCart, href: `/admin/${tenant.slug}/orders` },
     { label: 'Paramètres', icon: Settings, href: `/admin/${tenant.slug}/settings` },
     { label: 'Abonnement', icon: Settings, href: `/admin/${tenant.slug}/subscription` },
