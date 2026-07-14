@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCustomerAuthStore } from '@/store/useCustomerAuthStore';
 import { Button } from '@/components/ui/Button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { User, Phone, Mail, Loader2, Save, CheckCircle, ArrowLeft } from 'lucide-react';
 import GlobalNavbar from '@/components/global/GlobalNavbar';
 
@@ -124,9 +124,9 @@ export default function AccountPage() {
           <Card className="border-4 border-zinc-900 shadow-2xl bg-white rounded-3xl overflow-hidden">
             <CardHeader className="bg-zinc-900 text-white p-8">
               <CardTitle className="text-2xl font-black uppercase italic tracking-tighter">Modifier mes informations</CardTitle>
-              <CardDescription className="text-zinc-400 font-bold text-xs uppercase tracking-wider mt-1">
+              <p className="text-zinc-400 font-bold text-xs uppercase tracking-wider mt-1">
                 Gérez vos données personnelles synchronisées avec KSM Core
-              </CardDescription>
+              </p>
             </CardHeader>
             <CardContent className="p-8">
               <form onSubmit={handleSubmit} className="space-y-6">
