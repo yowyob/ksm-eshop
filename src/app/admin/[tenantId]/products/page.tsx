@@ -36,6 +36,8 @@ export default function AdminProductsPage() {
     categoryCode: '',
     imageUrl: '',
     quantity: '0',
+    variantLabel: '',
+    variantValues: '',
   });
 
   // Edit Form States
@@ -85,6 +87,11 @@ export default function AdminProductsPage() {
     setError(null);
 
     try {
+      // Encoder label + valeurs dans variantLabel: "Couleur: Noir, Blanc" ou "Standard"
+      const variantLabelEncoded = newProduct.variantLabel && newProduct.variantValues
+        ? `${newProduct.variantLabel}: ${newProduct.variantValues}`
+        : newProduct.variantLabel || 'Standard';
+
       const payload: any = {
         organizationId: tenantId,
         name: newProduct.name,
@@ -96,7 +103,7 @@ export default function AdminProductsPage() {
         currency: 'FCFA',
         familyCode: newProduct.categoryCode || 'STANDARD',
         categoryCode: newProduct.categoryCode || 'STANDARD',
-        variantLabel: 'Standard',
+        variantLabel: variantLabelEncoded,
         quantity: parseInt(newProduct.quantity, 10) || 0,
         sku: `SKU-${Date.now()}`,
         status: 'ACTIVE',
@@ -113,8 +120,7 @@ export default function AdminProductsPage() {
         setIsAddingProduct(false);
         setNewProduct({
           name: '', description: '', retailPrice: '', categoryCode: '',
-          imageUrl: '',
-          quantity: '0',
+          imageUrl: '', quantity: '0', variantLabel: '', variantValues: '',
         });
         await fetchProducts();
       } else {
@@ -128,6 +134,12 @@ export default function AdminProductsPage() {
   };
 
   const openEditForm = (p: KernelProduct) => {
+    // Décoder variantLabel: "Couleur: Noir, Blanc" → label="Couleur", values="Noir, Blanc"
+    const rawLabel = (p as any).variantLabel || '';
+    const colonIdx = rawLabel.indexOf(':');
+    const parsedLabel  = colonIdx >= 0 ? rawLabel.slice(0, colonIdx).trim() : (rawLabel === 'Standard' ? '' : rawLabel);
+    const parsedValues = colonIdx >= 0 ? rawLabel.slice(colonIdx + 1).trim() : '';
+
     setEditProduct({
       id: p.id,
       sku: (p as any).sku || '',
@@ -138,6 +150,8 @@ export default function AdminProductsPage() {
       imageUrl: p.photo || p.imageUrl || p.image || p.picture || '',
       quantity: p.quantity !== undefined ? p.quantity : 0,
       status: p.status || 'ACTIVE',
+      variantLabel: parsedLabel,
+      variantValues: parsedValues,
     });
     setIsEditingProduct(true);
     setIsAddingProduct(false);
@@ -151,6 +165,10 @@ export default function AdminProductsPage() {
     setError(null);
 
     try {
+      const variantLabelEncoded = editProduct.variantLabel && editProduct.variantValues
+        ? `${editProduct.variantLabel}: ${editProduct.variantValues}`
+        : editProduct.variantLabel || 'Standard';
+
       const payload: any = {
         organizationId: tenantId,
         sku: editProduct.sku || editProduct.name.substring(0, 5).toUpperCase() + '-' + Date.now().toString().substring(7),
@@ -163,7 +181,7 @@ export default function AdminProductsPage() {
         currency: 'FCFA',
         familyCode: editProduct.categoryCode || 'STANDARD',
         categoryCode: editProduct.categoryCode || 'STANDARD',
-        variantLabel: 'Standard',
+        variantLabel: variantLabelEncoded,
         quantity: parseInt(editProduct.quantity, 10) || 0,
       };
 
@@ -317,6 +335,30 @@ export default function AdminProductsPage() {
                   onChange={(e) => setNewProduct({...newProduct, description: e.target.value})}
                 />
               </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Libellé Variante
+                  <span className="ml-1 font-medium normal-case text-zinc-400">(ex : Couleur, Taille...)</span>
+                </label>
+                <input 
+                  className="w-full h-11 bg-white border-2 border-zinc-200 rounded-xl px-4 text-sm font-bold focus:border-blue-600 outline-none transition-colors"
+                  placeholder="Ex : Couleur"
+                  value={newProduct.variantLabel}
+                  onChange={(e) => setNewProduct({...newProduct, variantLabel: e.target.value})}
+                />
+              </div>
+
+              <div className="space-y-1 lg:col-span-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Valeurs de Variante
+                  <span className="ml-1 font-medium normal-case text-zinc-400">(séparées par une virgule)</span>
+                </label>
+                <input 
+                  className="w-full h-11 bg-white border-2 border-zinc-200 rounded-xl px-4 text-sm font-bold focus:border-blue-600 outline-none transition-colors"
+                  placeholder="Ex : Noir, Blanc, Rouge"
+                  value={newProduct.variantValues}
+                  onChange={(e) => setNewProduct({...newProduct, variantValues: e.target.value})}
+                />
+              </div>
             </div>
             <div className="flex justify-end">
               <Button type="submit" disabled={isSubmitting} className="h-11 bg-blue-600 hover:bg-blue-700 font-black uppercase tracking-widest px-8 shadow-xl shadow-blue-600/20 rounded-xl">
@@ -409,6 +451,30 @@ export default function AdminProductsPage() {
                   className="w-full h-24 bg-white border-2 border-zinc-200 rounded-xl p-4 text-sm font-bold focus:border-emerald-600 outline-none transition-colors resize-none"
                   value={editProduct.description}
                   onChange={(e) => setEditProduct({...editProduct, description: e.target.value})}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Libellé Variante
+                  <span className="ml-1 font-medium normal-case text-zinc-400">(ex : Couleur, Taille...)</span>
+                </label>
+                <input 
+                  className="w-full h-11 bg-white border-2 border-zinc-200 rounded-xl px-4 text-sm font-bold focus:border-emerald-600 outline-none transition-colors"
+                  placeholder="Ex : Couleur"
+                  value={editProduct.variantLabel || ''}
+                  onChange={(e) => setEditProduct({...editProduct, variantLabel: e.target.value})}
+                />
+              </div>
+
+              <div className="space-y-1 lg:col-span-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Valeurs de Variante
+                  <span className="ml-1 font-medium normal-case text-zinc-400">(séparées par une virgule)</span>
+                </label>
+                <input 
+                  className="w-full h-11 bg-white border-2 border-zinc-200 rounded-xl px-4 text-sm font-bold focus:border-emerald-600 outline-none transition-colors"
+                  placeholder="Ex : Noir, Blanc, Rouge"
+                  value={editProduct.variantValues || ''}
+                  onChange={(e) => setEditProduct({...editProduct, variantValues: e.target.value})}
                 />
               </div>
             </div>

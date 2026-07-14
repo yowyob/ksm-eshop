@@ -7,24 +7,28 @@ import { useCartStore } from '@/store/useCartStore';
 import { useCustomerAuthStore } from '@/store/useCustomerAuthStore';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
-import { Loader2, AlertTriangle, ArrowLeft, ShieldCheck, ShoppingCart, Tag, Layers, PackageCheck } from 'lucide-react';
+import { Loader2, AlertTriangle, ArrowLeft, ShieldCheck, ShoppingCart, Tag, PackageCheck } from 'lucide-react';
 import Link from 'next/link';
 
-/** Normalise les variantes qu'elles viennent du champ `options` ou `variants` du backend */
-function normalizeOptions(product: any): { name: string; values: string[] }[] {
-  // Champ `options` → [{name, values:[]}]
-  if (Array.isArray(product?.options) && product.options.length > 0) {
-    return product.options.filter((o: any) => o?.name && Array.isArray(o?.values) && o.values.length > 0);
+/**
+ * Parse le champ `variantLabel` du backend.
+ * Format stocké: "Couleur: Noir, Blanc, Rouge" ou simplement "Standard".
+ * Retourne null si pas de variantes réelles.
+ */
+function parseVariantLabel(product: any): { label: string; values: string[] } | null {
+  const raw: string = (product?.variantLabel || '').trim();
+  if (!raw || raw === 'Standard') return null;
+
+  const colonIdx = raw.indexOf(':');
+  if (colonIdx < 0) {
+    // Pas de deux-points → c'est juste un label sans valeurs
+    return null;
   }
-  // Champ `variants` → [{name, values:[]}] (même structure souvent)
-  if (Array.isArray(product?.variants) && product.variants.length > 0) {
-    // Si les variants sont des objets {name, values}
-    if (product.variants[0]?.values) {
-      return product.variants.filter((v: any) => v?.name && Array.isArray(v?.values) && v.values.length > 0);
-    }
-    // Si les variants sont des objets de type Kernel {id, sku, ...} → on ignore (variantes de stock)
-  }
-  return [];
+
+  const label  = raw.slice(0, colonIdx).trim();
+  const values = raw.slice(colonIdx + 1).split(',').map(v => v.trim()).filter(v => v !== '');
+  if (!label || values.length === 0) return null;
+  return { label, values };
 }
 
 export default function ProductDetailPage() {
@@ -36,7 +40,7 @@ export default function ProductDetailPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [activeImage, setActiveImage] = useState<string | null>(null);
-  const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
+  const [selectedVariant, setSelectedVariant] = useState<string>('');
 
   const { addItem } = useCartStore();
   const { isAuthenticated } = useCustomerAuthStore();
@@ -111,9 +115,9 @@ export default function ProductDetailPage() {
     .filter((img: string) => img !== '');
 
   const stockQty = (product as any)?.stock ?? (product as any)?.quantity ?? (product as any)?.stockCount ?? 0;
-  const normalizedOptions = product ? normalizeOptions(product) : [];
-  const hasVariants = normalizedOptions.length > 0;
-  const allOptionsSelected = hasVariants ? normalizedOptions.every(opt => selectedOptions[opt.name]) : true;
+  const variantInfo = product ? parseVariantLabel(product) : null;
+  const hasVariants = variantInfo !== null;
+  const allOptionsSelected = hasVariants ? selectedVariant !== '' : true;
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-50 font-sans">
@@ -224,38 +228,35 @@ export default function ProductDetailPage() {
                   <span className="text-xs text-zinc-400 font-medium">Stock vérifié</span>
                 </div>
 
-                {/* Variants / Options Selection */}
-                {hasVariants && (
-                  <div className="mb-8 space-y-5 border-t border-zinc-100 pt-6">
-                    <p className="text-xs font-black uppercase tracking-widest text-zinc-400">Choisissez vos options</p>
-                    {normalizedOptions.map((opt, idx) => (
-                      <div key={idx} className="space-y-2">
-                        <h3 className="font-bold text-zinc-800 text-sm flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
-                          {opt.name}
-                          {selectedOptions[opt.name] && (
-                            <span className="text-blue-600 font-black">— {selectedOptions[opt.name]}</span>
-                          )}
-                        </h3>
-                        <div className="flex flex-wrap gap-2">
-                          {opt.values.map((val, vIdx) => (
-                            <button
-                              key={vIdx}
-                              onClick={() => setSelectedOptions(prev => ({ ...prev, [opt.name]: val }))}
-                              className={`px-4 py-2 rounded-xl text-sm font-bold border-2 transition-all ${
-                                selectedOptions[opt.name] === val 
-                                  ? 'bg-zinc-900 text-white border-zinc-900 shadow-md scale-105'
-                                  : 'bg-white text-zinc-600 border-zinc-200 hover:border-zinc-400 hover:text-zinc-900'
-                              }`}
-                            >
-                              {val}
-                            </button>
-                          ))}
-                        </div>
+                {/* Variantes */}
+                {hasVariants && variantInfo && (
+                  <div className="mb-6 space-y-3 border-t border-zinc-100 pt-6">
+                    <div className="space-y-2">
+                      <p className="text-xs font-black uppercase tracking-widest text-zinc-500">
+                        {variantInfo.label}
+                        {selectedVariant && (
+                          <span className="ml-2 text-zinc-900 normal-case tracking-normal">— {selectedVariant}</span>
+                        )}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {variantInfo.values.map((val, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => setSelectedVariant(val)}
+                            className={`px-4 py-2 rounded-xl text-sm font-bold border-2 transition-all ${
+                              selectedVariant === val
+                                ? 'bg-zinc-900 text-white border-zinc-900 shadow-md scale-105'
+                                : 'bg-white text-zinc-600 border-zinc-200 hover:border-zinc-400 hover:text-zinc-900'
+                            }`}
+                          >
+                            {val}
+                          </button>
+                        ))}
                       </div>
-                    ))}
+                    </div>
                   </div>
                 )}
+
 
                 <Button 
                   onClick={() => {
@@ -265,23 +266,21 @@ export default function ProductDetailPage() {
                       return;
                     }
                     if (!allOptionsSelected) {
-                      alert('Veuillez sélectionner toutes les options avant d\'ajouter au panier.');
+                      alert(`Veuillez sélectionner ${variantInfo?.label || 'une variante'} avant d'ajouter au panier.`);
                       return;
                     }
 
-                    const optionsString = Object.entries(selectedOptions).sort().map(([k,v]) => `${k}=${v}`).join('|');
-                    const variantId = optionsString ? `${product.id}-${optionsString}` : product.id;
-                    const variantNameAppendix = optionsString ? ` (${Object.values(selectedOptions).join(', ')})` : '';
+                    const variantSuffix = selectedVariant ? ` (${selectedVariant})` : '';
+                    const variantId = selectedVariant ? `${product.id}-${selectedVariant}` : product.id;
 
                     addItem({
                       productId: product.id,
                       variantId: variantId,
-                      name: product.name + variantNameAppendix,
+                      name: product.name + variantSuffix,
                       price: product.unitPrice || 0,
-                      wholesalePrice: product.wholesalePrice,
                       imageUrl: activeImage || '',
                       tenantId: product.organizationId,
-                      selectedOptions: selectedOptions
+                      selectedOptions: selectedVariant ? { [variantInfo?.label || 'Variante']: selectedVariant } : {}
                     });
                   }}
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black text-lg py-6 rounded-2xl shadow-xl shadow-blue-600/20 transition-all hover:scale-[1.02] flex items-center justify-center gap-3"
