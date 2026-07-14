@@ -8,8 +8,7 @@ import { useCartStore } from '@/store/useCartStore';
 import { useProductStore } from '@/store/useProductStore';
 import { useInventoryStore } from '@/store/useInventoryStore';
 import Link from 'next/link';
-import { useState } from 'react';
-import { ShoppingCart, Eye, Package, X } from 'lucide-react';
+import { ShoppingCart, Eye, Package } from 'lucide-react';
 
 interface ProductCardProps {
   product: Product;
@@ -35,13 +34,6 @@ export default function ProductCard({ product, tenantSlug }: ProductCardProps) {
   
   const addItem = useCartStore((state) => state.addItem);
   
-  // États de sélection de variantes
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedVariant, setSelectedVariant] = useState('');
-
-  const variantInfo = parseVariantLabel(product);
-  const hasVariants = variantInfo !== null;
-  
   let price = product.price || 0;
   let stock = product.stock || 0;
 
@@ -52,28 +44,16 @@ export default function ProductCard({ product, tenantSlug }: ProductCardProps) {
       return;
     }
 
-    if (hasVariants && !selectedVariant) {
-      // Ouvrir le pop-up pour forcer la sélection
-      setIsModalOpen(true);
-      return;
-    }
-
-    const variantSuffix = selectedVariant ? ` (${selectedVariant})` : '';
-    const finalVariantId = selectedVariant ? `${product.id}-${selectedVariant}` : product.id;
-
+    // Ajout direct au panier (sans variante spécifiée pour le moment, à choisir dans le panier)
     addItem({
       productId: product.id,
-      variantId: finalVariantId,
-      name: `${product.name}${variantSuffix}`,
+      variantId: product.id, // Initialement ID produit, sera mis à jour dans le panier
+      name: product.name,
       price: price,
       imageUrl: product.imageUrl,
       tenantId: product.organizationId || tenantSlug,
-      selectedOptions: selectedVariant ? { [variantInfo?.label || 'Variante']: selectedVariant } : {}
+      selectedOptions: {} // Initialement vide, requis d'être configuré dans le panier
     });
-
-    // Refermer le modal après ajout
-    setIsModalOpen(false);
-    setSelectedVariant('');
   };
 
   return (
@@ -127,90 +107,10 @@ export default function ProductCard({ product, tenantSlug }: ProductCardProps) {
             onClick={handleAddToCart}
           >
             <ShoppingCart className="h-4 w-4" />
-            {hasVariants ? 'Choisir les options' : 'Ajouter au panier'}
+            Ajouter au panier
           </Button>
         </CardFooter>
       </Card>
-
-      {/* POP-UP DE SÉLECTION DE VARIANTES (FORCÉ) */}
-      {isModalOpen && hasVariants && variantInfo && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-250">
-          <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden border-2 border-zinc-100 animate-in zoom-in-95 duration-200">
-            {/* Header Modal */}
-            <div className="p-6 border-b border-zinc-100 flex items-start justify-between bg-zinc-50/50">
-              <div className="flex items-center gap-3">
-                <div className="h-12 w-12 rounded-xl overflow-hidden bg-zinc-100 shrink-0 border border-zinc-200">
-                  {product.imageUrl ? (
-                    <img src={product.imageUrl} className="h-full w-full object-cover" alt={product.name} />
-                  ) : (
-                    <div className="h-full w-full flex items-center justify-center text-zinc-300"><Package className="h-5 w-5" /></div>
-                  )}
-                </div>
-                <div>
-                  <h4 className="font-black text-sm text-zinc-900 uppercase italic line-clamp-1">{product.name}</h4>
-                  <p className="text-blue-600 font-bold text-xs mt-0.5">{formatPrice(price)}</p>
-                </div>
-              </div>
-              <button 
-                onClick={() => {
-                  setIsModalOpen(false);
-                  setSelectedVariant('');
-                }} 
-                className="h-8 w-8 rounded-full bg-white hover:bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-500 hover:text-zinc-900 transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            {/* Corps du Modal */}
-            <div className="p-6 space-y-4">
-              <div className="space-y-3">
-                <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
-                  Choisir {variantInfo.label} <span className="text-red-500">*</span>
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {variantInfo.values.map((val, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => setSelectedVariant(val)}
-                      className={`px-4 py-2.5 rounded-xl text-xs font-bold border-2 transition-all ${
-                        selectedVariant === val
-                          ? 'bg-zinc-950 text-white border-zinc-950 shadow-md scale-105'
-                          : 'bg-white text-zinc-600 border-zinc-200 hover:border-zinc-400 hover:text-zinc-900'
-                      }`}
-                    >
-                      {val}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Footer Modal */}
-            <div className="p-6 border-t border-zinc-100 bg-zinc-50/50 flex gap-3">
-              <Button 
-                variant="outline" 
-                className="flex-1 font-black uppercase text-xs h-11 border-2"
-                onClick={() => {
-                  setIsModalOpen(false);
-                  setSelectedVariant('');
-                }}
-              >
-                Annuler
-              </Button>
-              <Button 
-                disabled={!selectedVariant}
-                className="flex-1 font-black uppercase text-xs h-11 bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20"
-                onClick={handleAddToCart}
-              >
-                <ShoppingCart className="h-4 w-4 mr-1.5" />
-                Confirmer l&apos;ajout
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }
