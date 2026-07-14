@@ -102,6 +102,10 @@ export default function SuperAdminPage() {
       (o._orgName || '').toLowerCase().includes(q) ||
       (o._customerName || '').toLowerCase().includes(q)
     );
+  }).sort((a, b) => {
+    const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return timeB - timeA;
   });
 
   if (loading) {
