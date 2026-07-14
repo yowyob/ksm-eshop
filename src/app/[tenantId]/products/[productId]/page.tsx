@@ -82,12 +82,29 @@ export default function ProductDetailPage() {
               setActiveImage(images[0]);
             }
             
-            // Trouver produits similaires (même catégorie)
-            const similar = pList.filter(p => 
-              p.id !== productId && 
-              (p as any).categoryCode === (currentProduct as any).categoryCode
-            ).slice(0, 5);
-            setSimilarProducts(similar);
+            // Algorithme de similarité de nom (mots en commun)
+            const getNameSimilarity = (n1: string, n2: string): number => {
+              const w1 = n1.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(w => w.length > 2);
+              const w2 = n2.toLowerCase().replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(w => w.length > 2);
+              let common = 0;
+              w1.forEach(w => {
+                if (w2.includes(w)) common++;
+              });
+              return common;
+            };
+
+            // Trier les produits par score de similarité décroissant
+            const sortedSimilar = pList
+              .filter(p => p.id !== productId)
+              .map(p => ({
+                product: p,
+                score: getNameSimilarity(currentProduct.name, p.name)
+              }))
+              .sort((a, b) => b.score - a.score)
+              .map(item => item.product)
+              .slice(0, 5);
+
+            setSimilarProducts(sortedSimilar);
           } else {
             setError('Produit non trouvé.');
           }
