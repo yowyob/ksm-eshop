@@ -162,25 +162,7 @@ export default function AdminClientsPage() {
             Organisation : <span className="text-blue-600">{tenantId}</span>
           </p>
         </div>
-        <div className="flex gap-3">
-          <Button
-            onClick={handleDeduplicate}
-            disabled={deduplicating}
-            size="sm"
-            variant="outline"
-            className="border-red-300 text-red-600 hover:bg-red-50 font-black uppercase text-[10px] gap-2 h-9"
-          >
-            {deduplicating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
-            Supprimer doublons
-          </Button>
-          <Button 
-            onClick={openModal}
-            size="sm" 
-            className="bg-blue-600 hover:bg-blue-700 font-black uppercase text-[10px] gap-2 h-9"
-          >
-            <Plus className="h-3 w-3" /> Nouveau Client
-          </Button>
-        </div>
+
       </div>
 
       {error && (
