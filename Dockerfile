@@ -4,7 +4,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 COPY package.json package-lock.json* ./
 RUN npm install --no-audit --no-fund
 COPY . .
-RUN rm -f next.config.js next.config.ts && printf '/** @type {import("next").NextConfig} */\nconst nextConfig = { typescript: { ignoreBuildErrors: true }, eslint: { ignoreDuringBuilds: true } };\nexport default nextConfig;\n' > next.config.mjs
+RUN rm -f next.config.js next.config.ts && printf 'import createNextIntlPlugin from "next-intl/plugin";\nconst withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");\n/** @type {import("next").NextConfig} */\nconst nextConfig = { typescript: { ignoreBuildErrors: true }, eslint: { ignoreDuringBuilds: true } };\nexport default withNextIntl(nextConfig);\n' > next.config.mjs
 # Force le rendu dynamique via le layout racine (Server Component) : évite le prerender
 # statique qui casse sur useSearchParams ("missing suspense with CSR bailout"). Next 16.
 RUN node -e "const fs=require('fs');for(const f of ['src/app/layout.tsx','src/app/layout.jsx','app/layout.tsx','app/layout.jsx']){if(fs.existsSync(f)){let c=fs.readFileSync(f,'utf8');if(!/export const dynamic/.test(c)){fs.writeFileSync(f,\"export const dynamic = 'force-dynamic';\n\"+c);console.log('forced dynamic in',f);}break;}}" || true
