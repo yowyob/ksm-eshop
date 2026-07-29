@@ -1,12 +1,31 @@
 import { NextRequest } from 'next/server';
 import { backendFetch } from '@/lib/api-client';
-import { getLocalUsers } from '@/lib/local-db';
 import { getKernelToken } from '@/lib/kernel-auth';
 
 export const dynamic = 'force-dynamic';
 
+// Cache en mémoire pour accélérer drastiquement les accès répétés
+let cachedStats: any = null;
+let lastFetchTime = 0;
+const CACHE_DURATION_MS = 60 * 1000; // Cache de 1 minute
+
 export async function GET(request: NextRequest) {
   try {
+    const now = Date.now();
+    const url = new URL(request.url);
+    const forceRefresh = url.searchParams.get('refresh') === 'true';
+
+    // Retourner le cache s'il est encore valide et qu'on ne force pas le rafraîchissement
+    if (cachedStats && (now - lastFetchTime < CACHE_DURATION_MS) && !forceRefresh) {
+      console.log("[SUPER-STATS] Retour du cache en mémoire (valide encore", Math.round((CACHE_DURATION_MS - (now - lastFetchTime)) / 1000), "s)");
+      return Response.json({
+        success: true,
+        data: cachedStats,
+        fromCache: true
+      });
+    }
+
+    console.log("[SUPER-STATS] Début de la récupération des données fraîches du Kernel...");
     const adminToken = await getKernelToken();
     const authHeader = { 
       'Authorization': `Bearer ${adminToken}`,
@@ -105,32 +124,54 @@ export async function GET(request: NextRequest) {
       totalRevenue += (amount || 0) * 0.05;
     });
 
-    // ── 5. Résoudre les noms des clients — listing par org ─────────────────
-    // On charge la liste complète des tiers pour chaque org et on construit un cache global
+    // ── 5. Résoudre les noms des clients directement depuis la commande (optimisé) ──
+    allOrders = allOrders.map((order: any) => {
+      return {
+        ...order,
+        _customerName:
+          order.counterparty?.name ||
+          order.counterparty?.displayName ||
+          order.customerName ||
+          order.createdBy ||
+          'Client'
+      };
+    });
+
+    // ── 6. Charger dynamiquement les utilisateurs/tiers depuis toutes les orgs Kernel ──
     const nameCache: Record<string, string> = {};
-
-    // Orgs uniques présentes dans les commandes
-    const orgIdsInOrders = [...new Set(allOrders.map((o: any) => o._orgId).filter(Boolean))];
-
+    const allUsersMap = new Map<string, any>();
+    
     await Promise.allSettled(
-      orgIdsInOrders.map(async (orgId: string) => {
+      organizations.map(async (org: any) => {
         try {
-          const res = await backendFetch(`/api/third-parties?organizationId=${orgId}&size=1000`, {
+          const res = await backendFetch(`/api/third-parties?organizationId=${org.id}&size=1000`, {
             method: 'GET',
             headers: {
               Authorization: `Bearer ${adminToken}`,
-              'X-Organization-Id': orgId,
+              'X-Organization-Id': org.id,
             },
           });
           if (res.success && res.data) {
             const list: any[] = Array.isArray(res.data)
               ? res.data
               : res.data.content || res.data.data || [];
+            
             for (const tp of list) {
               const name = tp.name || tp.displayName || tp.longName || tp.code || null;
               if (name) {
                 if (tp.id) nameCache[tp.id] = name;
                 if (tp.partyId) nameCache[tp.partyId] = name;
+              }
+
+              const emailKey = (tp.email || tp.primaryEmail || tp.code || tp.id || '').toLowerCase().trim();
+              if (emailKey && !allUsersMap.has(emailKey)) {
+                allUsersMap.set(emailKey, {
+                  id: tp.id,
+                  email: tp.email || tp.primaryEmail || '',
+                  name: tp.name || tp.displayName || tp.code || 'Client',
+                  phone: tp.phone || tp.primaryPhone || '',
+                  organizationId: org.id
+                });
               }
             }
           }
@@ -138,7 +179,10 @@ export async function GET(request: NextRequest) {
       })
     );
 
-    // Injecter le vrai nom dans chaque commande
+    const users = Array.from(allUsersMap.values());
+    const totalUsers = users.length;
+
+    // Enrichir le nom du client dans les commandes avec le cache résolu
     allOrders = allOrders.map((order: any) => {
       const tpId = order.customerThirdPartyId || order.counterpartyThirdPartyId;
       const resolvedName = tpId ? (nameCache[tpId] || null) : null;
@@ -149,31 +193,34 @@ export async function GET(request: NextRequest) {
           order.counterparty?.name ||
           order.counterparty?.displayName ||
           order.customerName ||
-          null,
+          order.createdBy ||
+          'Client'
       };
     });
-
-    // ── 6. Comptage des utilisateurs locaux ─────────────────────────────────
-    const users = await getLocalUsers();
-    const totalUsers = users.length;
 
     // ── 7. Filtrer seulement les orgs qui ont des commandes ─────────────────
     const orgsWithOrders = organizations.filter((org: any) =>
       allOrders.some((o: any) => o._orgId === org.id)
     );
 
+    const statsData = {
+      totalTransactions,
+      totalRevenue,
+      totalUsers,
+      totalOrganizations: organizations.length,
+      orgsWithOrders: orgsWithOrders.length,
+      orders: allOrders,
+      organizations,
+    };
+
+    // Mettre en cache
+    cachedStats = statsData;
+    lastFetchTime = now;
+
     return Response.json({
       success: true,
-      data: {
-        totalTransactions,
-        totalRevenue,
-        totalUsers,
-        totalOrganizations: organizations.length,
-        orgsWithOrders: orgsWithOrders.length,
-        orders: allOrders,
-        organizations,
-        users,
-      },
+      data: statsData,
+      fromCache: false
     });
   } catch (error: any) {
     return Response.json(

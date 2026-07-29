@@ -6,10 +6,13 @@ import { Button } from '@/components/ui/Button';
 import { useRouter } from 'next/navigation';
 import { Building2, ArrowRight, ArrowLeft } from 'lucide-react';
 
+import { useTranslations } from 'next-intl';
+
 export default function SignupPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const t = useTranslations('Signup');
 
   const handleSignup = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -37,10 +40,10 @@ export default function SignupPage() {
           router.push(`/login?registered=true`);
         }
       } else {
-        setError(data.message || 'Erreur lors de l\'inscription');
+        setError(data.message || t('errorMsg'));
       }
     } catch (err: any) {
-      setError('Erreur de connexion au serveur');
+      setError(t('serverError'));
     } finally {
       setLoading(false);
     }
@@ -59,10 +62,10 @@ export default function SignupPage() {
             <Building2 className="h-8 w-8 text-white" />
           </div>
           <h2 className="mt-2 text-3xl font-black text-zinc-900 uppercase tracking-tighter italic">
-            Inscription
+            {t('title')}
           </h2>
           <p className="mt-2 text-sm font-bold text-zinc-500 uppercase tracking-widest">
-            Rejoignez la plateforme KSM
+            {t('subtitle')}
           </p>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSignup}>
@@ -74,7 +77,7 @@ export default function SignupPage() {
           <div className="space-y-4">
             <div>
               <label htmlFor="name" className="block text-sm font-bold text-zinc-700 mb-1">
-                Nom d'utilisateur
+                {t('usernameLabel')}
               </label>
               <input
                 id="name"
@@ -83,12 +86,12 @@ export default function SignupPage() {
                 autoComplete="username"
                 required
                 className="appearance-none relative block w-full px-4 py-3 border-2 border-zinc-200 placeholder-zinc-400 text-zinc-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent font-medium transition-all"
-                placeholder="Votre nom d'utilisateur"
+                placeholder={t('usernamePlaceholder')}
               />
             </div>
             <div>
               <label htmlFor="email" className="block text-sm font-bold text-zinc-700 mb-1">
-                Adresse Email
+                {t('emailLabel')}
               </label>
               <input
                 id="email"
@@ -97,12 +100,12 @@ export default function SignupPage() {
                 autoComplete="email"
                 required
                 className="appearance-none relative block w-full px-4 py-3 border-2 border-zinc-200 placeholder-zinc-400 text-zinc-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent font-medium transition-all"
-                placeholder="vous@exemple.com"
+                placeholder={t('emailPlaceholder')}
               />
             </div>
             <div>
               <label htmlFor="code" className="block text-sm font-bold text-zinc-700 mb-1">
-                Mot de passe
+                {t('passwordLabel')}
               </label>
               <input
                 id="code"
@@ -111,15 +114,15 @@ export default function SignupPage() {
                 autoComplete="new-password"
                 required
                 className="appearance-none relative block w-full px-4 py-3 border-2 border-zinc-200 placeholder-zinc-400 text-zinc-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:border-transparent font-medium transition-all"
-                placeholder="••••••••"
+                placeholder={t('passwordPlaceholder')}
               />
             </div>
           </div>
 
           <div>
             <Button type="submit" disabled={loading} className="w-full h-14 text-lg font-black uppercase tracking-widest bg-zinc-900 hover:bg-zinc-800 text-white shadow-xl disabled:opacity-50">
-              {loading ? 'Création en cours...' : (
-                <>Créer mon compte <ArrowRight className="ml-2 h-5 w-5" /></>
+              {loading ? t('loading') : (
+                <>{t('submitButton')} <ArrowRight className="ml-2 h-5 w-5" /></>
               )}
             </Button>
           </div>
@@ -127,9 +130,9 @@ export default function SignupPage() {
 
         <div className="mt-6 text-center">
           <p className="text-sm font-bold text-zinc-600">
-            Déjà client ?{' '}
+            {t('alreadyClient')}{' '}
             <Link href={`/login`} className="text-zinc-900 underline hover:text-zinc-700 transition-colors">
-              Connectez-vous
+              {t('loginLink')}
             </Link>
           </p>
         </div>

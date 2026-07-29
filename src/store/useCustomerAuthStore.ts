@@ -20,7 +20,14 @@ export const useCustomerAuthStore = create<CustomerAuthState>()(
       user: null,
       loading: true,
       bankAccounts: [],
-      setAuthenticated: (isAuthenticated, user) => set({ isAuthenticated, user, loading: false }),
+      setAuthenticated: (isAuthenticated, user) => {
+        set({ isAuthenticated, user, loading: false });
+        if (typeof window !== 'undefined') {
+          import('./useCartStore').then(({ useCartStore }) => {
+            useCartStore.getState().setUserId(user?.partyId || user?.id || null);
+          });
+        }
+      },
       checkAuth: async (organizationId) => {
         set({ loading: true });
         try {
@@ -29,6 +36,9 @@ export const useCustomerAuthStore = create<CustomerAuthState>()(
           if (data.success && data.data) {
             const userData = data.data.content ? data.data.content : data.data;
             set({ isAuthenticated: true, user: userData, loading: false });
+            import('./useCartStore').then(({ useCartStore }) => {
+              useCartStore.getState().setUserId(userData?.partyId || userData?.id || null);
+            });
             return true;
           }
         } catch (e) {
@@ -49,6 +59,9 @@ export const useCustomerAuthStore = create<CustomerAuthState>()(
       logout: () => {
         fetch('/api/auth/customer-logout', { method: 'POST' }).catch(console.error);
         set({ isAuthenticated: false, user: null });
+        import('./useCartStore').then(({ useCartStore }) => {
+          useCartStore.getState().setUserId(null);
+        });
       },
     }),
     {

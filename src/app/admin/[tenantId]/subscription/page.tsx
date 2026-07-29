@@ -1,15 +1,37 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Check, ShieldCheck, Zap, CreditCard, Sparkles } from 'lucide-react';
+import { Check, ShieldCheck, Zap, CreditCard, Sparkles, Loader2 } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 
 export default function SubscriptionPage() {
   const { tenantId } = useParams();
   const [currentPlan, setCurrentPlan] = useState('free');
+  const [loadingPlan, setLoadingPlan] = useState(true);
+  const [updatingPlan, setUpdatingPlan] = useState(false);
+
+  useEffect(() => {
+    const loadCurrentPlan = async () => {
+      try {
+        const res = await fetch('/api/organizations?includeAll=true');
+        const data = await res.json();
+        if (data.success && Array.isArray(data.data)) {
+          const org = data.data.find((o: any) => o.id === tenantId || o.slug === tenantId || o.code === tenantId);
+          if (org && org.subscriptionPlan) {
+            setCurrentPlan(org.subscriptionPlan);
+          }
+        }
+      } catch (err) {
+        console.error('Error loading current subscription plan:', err);
+      } finally {
+        setLoadingPlan(false);
+      }
+    };
+    if (tenantId) loadCurrentPlan();
+  }, [tenantId]);
   
   const plans = [
     {
@@ -64,13 +86,49 @@ export default function SubscriptionPage() {
     }
   ];
 
-  const handleSubscribe = (planId: string) => {
-    alert(`Redirection vers la passerelle de paiement pour le plan ${planId}...`);
-    // Here we would typically redirect to a payment processor
+  const handleSubscribe = async (planId: string) => {
+    setUpdatingPlan(true);
+    try {
+      const res = await fetch(`/api/organizations/${tenantId}/subscribe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ planId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCurrentPlan(planId);
+        alert(`Félicitations ! Votre abonnement au "${planId === 'annual' ? 'Plan Annuel' : 'Plan Mensuel'}" a été validé et payé avec succès.`);
+      } else {
+        alert(data.message || 'Erreur lors du paiement.');
+      }
+    } catch {
+      alert('Une erreur réseau est survenue lors de la validation de votre abonnement.');
+    } finally {
+      setUpdatingPlan(false);
+    }
   };
+
+  if (loadingPlan) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 bg-white rounded-3xl border-2 border-zinc-100 shadow-sm">
+        <Loader2 className="h-10 w-10 text-blue-600 animate-spin mb-4" />
+        <p className="text-zinc-500 font-bold uppercase tracking-widest text-xs">Vérification de l&apos;abonnement en cours...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto space-y-12">
+      {updatingPlan && (
+        <div className="fixed inset-0 bg-zinc-900/60 backdrop-blur-sm flex flex-col items-center justify-center z-50 animate-in fade-in duration-200">
+          <div className="bg-white p-8 rounded-3xl border-2 border-zinc-900 max-w-sm text-center shadow-2xl">
+            <Loader2 className="h-12 w-12 text-blue-600 animate-spin mx-auto mb-4" />
+            <p className="font-black uppercase tracking-tighter text-lg text-zinc-900">Validation du Paiement</p>
+            <p className="text-xs text-zinc-500 font-medium mt-1">Traitement sécurisé par la passerelle KSM Pay...</p>
+          </div>
+        </div>
+      )}
+
       <div className="text-center max-w-2xl mx-auto">
         <h1 className="text-4xl font-black uppercase tracking-tighter text-zinc-900 mb-4">Abonnement KSM</h1>
         <p className="text-zinc-500 font-medium">Choisissez le plan adapté à la taille de votre entreprise. Gérez vos paiements et accédez aux fonctionnalités premium.</p>

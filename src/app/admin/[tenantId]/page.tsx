@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Package, Users, ShoppingCart, Loader2, ArrowRight, TrendingUp, CreditCard } from 'lucide-react';
+import { Package, Users, ShoppingCart, Loader2, ArrowRight, TrendingUp, CreditCard, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { formatPrice } from '@/lib/utils';
 
@@ -16,6 +16,10 @@ export default function AdminDashboardPage() {
     clients: 0,
     orders: 0,
     revenue: 0,
+    grossRevenue: 0,
+    ksmPart: 0,
+    incidents: 0,
+    deliveries: 0,
     recentOrders: [] as any[]
   });
   const [loading, setLoading] = useState(true);
@@ -62,8 +66,12 @@ export default function AdminDashboardPage() {
         const ordersRes = await fetch(`/api/orders?organizationId=${tenantId}&size=1000&t=${t}`);
         const ordersData = await ordersRes.json();
         let ordersCount = 0;
-        let revenue = 0;
+        let grossRevenue = 0;
+        let ksmPart = 0;
+        let netRevenue = 0;
         let recentOrders = [];
+        let incidentsCount = 0;
+        let deliveriesCount = 0;
         
         if (ordersData.success || ordersRes.ok) {
            const raw = ordersData.data || ordersData;
@@ -73,7 +81,6 @@ export default function AdminDashboardPage() {
            else if (raw?.total !== undefined) ordersCount = raw.total;
            else ordersCount = ordersList.length;
            
-           // Le tenant reçoit 95% du total (5% vont à la plateforme)
            const totalAmount = ordersList.reduce((acc: number, o: any) => {
              let amt = o.grossAmount || o.netAmount || o.totalAmount || o.total;
              if (!amt) {
@@ -85,8 +92,17 @@ export default function AdminDashboardPage() {
              }
              return acc + (amt || 0);
            }, 0);
-           revenue = totalAmount * 0.95;
+
+           grossRevenue = totalAmount;
+           ksmPart = totalAmount * 0.05;
+           netRevenue = totalAmount * 0.95;
            
+           // Incidents = Commandes annulées ou échouées
+           incidentsCount = ordersList.filter((o: any) => o.status === 'CANCELLED' || o.status === 'FAILED' || o.paymentStatus === 'FAILED').length;
+           
+           // Livraisons = Commandes confirmées ou livrées
+           deliveriesCount = ordersList.filter((o: any) => o.status === 'CONFIRMED' || o.status === 'DELIVERED' || o.status === 'COMPLETED').length;
+
            recentOrders = ordersList.sort((a: any, b: any) => {
              const dA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
              const dB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
@@ -98,7 +114,11 @@ export default function AdminDashboardPage() {
           products: productsCount,
           clients: clientsCount,
           orders: ordersCount,
-          revenue,
+          revenue: netRevenue,
+          grossRevenue,
+          ksmPart,
+          incidents: incidentsCount,
+          deliveries: deliveriesCount,
           recentOrders
         });
       } catch (err: any) {
@@ -135,55 +155,121 @@ export default function AdminDashboardPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* Revenue Stat Card */}
-        <Card className="border-2 border-amber-500 bg-amber-50 shadow-xl shadow-amber-500/10 rounded-3xl overflow-hidden hover:scale-[1.02] transition-transform">
-          <CardHeader className="p-6 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-black uppercase tracking-widest text-amber-700">
-              Revenus Net (-5%)
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Gross Revenue Card */}
+        <Card className="border-2 border-zinc-200 bg-white shadow-sm rounded-3xl overflow-hidden">
+          <CardHeader className="p-6 bg-zinc-50 border-b border-zinc-100 flex flex-row items-center justify-between">
+            <CardTitle className="text-xs font-black uppercase tracking-widest text-zinc-500">
+              Chiffre d&apos;Affaires Brut (100%)
             </CardTitle>
-            <div className="h-10 w-10 bg-amber-500 rounded-xl flex items-center justify-center shadow-md">
-              <TrendingUp className="h-5 w-5 text-white" />
-            </div>
-          </CardHeader>
-          <CardContent className="p-6 pt-0">
-            <div className="text-4xl font-black text-amber-600 mb-4">{formatPrice(stats.revenue)}</div>
-            <div className="text-xs font-bold text-amber-600/70 uppercase tracking-widest">Générés par la boutique</div>
-          </CardContent>
-        </Card>
-        
-        {/* Orders Stat Card */}
-        <Card className="border-2 border-zinc-200 bg-white hover:border-purple-600 transition-colors shadow-sm rounded-3xl overflow-hidden group">
-          <CardHeader className="p-6 bg-zinc-50 border-b border-zinc-100 flex flex-row items-center justify-between group-hover:bg-purple-50/50 transition-colors">
-            <CardTitle className="text-sm font-black uppercase tracking-widest text-zinc-500 group-hover:text-purple-600 transition-colors">
-              Commandes
-            </CardTitle>
-            <div className="h-10 w-10 bg-purple-100 rounded-xl flex items-center justify-center">
-              <ShoppingCart className="h-5 w-5 text-purple-600" />
+            <div className="h-9 w-9 bg-zinc-100 rounded-lg flex items-center justify-center">
+              <TrendingUp className="h-4.5 w-4.5 text-zinc-600" />
             </div>
           </CardHeader>
           <CardContent className="p-6">
-            <div className="text-4xl font-black text-zinc-900 mb-4">{stats.orders}</div>
-            <Link href={`/admin/${tenantId}/orders`} className="flex items-center text-purple-600 font-black uppercase tracking-widest text-xs hover:text-purple-700">
-              Gérer les commandes <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
+            <div className="text-3xl font-black text-zinc-950">{formatPrice(stats.grossRevenue || 0)}</div>
+            <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider mt-1">Total des ventes enregistrées</p>
+          </CardContent>
+        </Card>
+
+        {/* KSM Commission Card */}
+        <Card className="border-2 border-red-200 bg-red-50/20 shadow-sm rounded-3xl overflow-hidden">
+          <CardHeader className="p-6 bg-red-50/50 border-b border-red-100 flex flex-row items-center justify-between">
+            <CardTitle className="text-xs font-black uppercase tracking-widest text-red-700">
+              Part KSM eShop (5%)
+            </CardTitle>
+            <div className="h-9 w-9 bg-red-100 rounded-lg flex items-center justify-center">
+              <CreditCard className="h-4.5 w-4.5 text-red-600" />
+            </div>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="text-3xl font-black text-red-600">-{formatPrice(stats.ksmPart || 0)}</div>
+            <p className="text-[10px] text-red-500 font-bold uppercase tracking-wider mt-1">Commission de la plateforme</p>
+          </CardContent>
+        </Card>
+
+        {/* Net Revenue Card */}
+        <Card className="border-2 border-emerald-500 bg-emerald-50/30 shadow-xl shadow-emerald-500/5 rounded-3xl overflow-hidden">
+          <CardHeader className="p-6 bg-emerald-50/80 border-b border-emerald-100 flex flex-row items-center justify-between">
+            <CardTitle className="text-xs font-black uppercase tracking-widest text-emerald-800">
+              Votre Revenu Net (95%)
+            </CardTitle>
+            <div className="h-9 w-9 bg-emerald-500 rounded-lg flex items-center justify-center shadow-md">
+              <TrendingUp className="h-4.5 w-4.5 text-white" />
+            </div>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="text-3xl font-black text-emerald-700">{formatPrice(stats.revenue || 0)}</div>
+            <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider mt-1">Revenu net crédité</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+        {/* Orders Stat Card */}
+        <Card className="border-2 border-zinc-200 bg-white hover:border-purple-600 transition-colors shadow-sm rounded-3xl overflow-hidden group">
+          <CardHeader className="p-6 bg-zinc-50 border-b border-zinc-100 flex flex-row items-center justify-between group-hover:bg-purple-50/50 transition-colors">
+            <CardTitle className="text-xs font-black uppercase tracking-widest text-zinc-500 group-hover:text-purple-600 transition-colors">
+              Commandes
+            </CardTitle>
+            <div className="h-9 w-9 bg-purple-100 rounded-lg flex items-center justify-center">
+              <ShoppingCart className="h-4.5 w-4.5 text-purple-600" />
+            </div>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="text-3xl font-black text-zinc-900 mb-3">{stats.orders}</div>
+            <Link href={`/admin/${tenantId}/orders`} className="flex items-center text-purple-600 font-black uppercase tracking-widest text-[10px] hover:text-purple-700">
+              Gérer <ArrowRight className="h-3 w-3 ml-1.5 group-hover:translate-x-1 transition-transform" />
             </Link>
+          </CardContent>
+        </Card>
+
+        {/* Deliveries Stat Card */}
+        <Card className="border-2 border-zinc-200 bg-white hover:border-emerald-600 transition-colors shadow-sm rounded-3xl overflow-hidden group">
+          <CardHeader className="p-6 bg-zinc-50 border-b border-zinc-100 flex flex-row items-center justify-between group-hover:bg-emerald-50/50 transition-colors">
+            <CardTitle className="text-xs font-black uppercase tracking-widest text-zinc-500 group-hover:text-emerald-600 transition-colors">
+              Livraisons
+            </CardTitle>
+            <div className="h-9 w-9 bg-emerald-100 rounded-lg flex items-center justify-center">
+              <Package className="h-4.5 w-4.5 text-emerald-600" />
+            </div>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="text-3xl font-black text-zinc-900 mb-3">{stats.deliveries || 0}</div>
+            <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Commandes expédiées</p>
+          </CardContent>
+        </Card>
+
+        {/* Incidents Stat Card */}
+        <Card className="border-2 border-zinc-200 bg-white hover:border-red-600 transition-colors shadow-sm rounded-3xl overflow-hidden group">
+          <CardHeader className="p-6 bg-zinc-50 border-b border-zinc-100 flex flex-row items-center justify-between group-hover:bg-red-50/50 transition-colors">
+            <CardTitle className="text-xs font-black uppercase tracking-widest text-zinc-500 group-hover:text-red-600 transition-colors">
+              Incidents
+            </CardTitle>
+            <div className="h-9 w-9 bg-red-100 rounded-lg flex items-center justify-center">
+              <AlertTriangle className="h-4.5 w-4.5 text-red-600" />
+            </div>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="text-3xl font-black text-zinc-900 mb-3">{stats.incidents || 0}</div>
+            <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Erreurs ou annulations</p>
           </CardContent>
         </Card>
 
         {/* Products Stat Card */}
         <Card className="border-2 border-zinc-200 bg-white hover:border-blue-600 transition-colors shadow-sm rounded-3xl overflow-hidden group">
           <CardHeader className="p-6 bg-zinc-50 border-b border-zinc-100 flex flex-row items-center justify-between group-hover:bg-blue-50/50 transition-colors">
-            <CardTitle className="text-sm font-black uppercase tracking-widest text-zinc-500 group-hover:text-blue-600 transition-colors">
+            <CardTitle className="text-xs font-black uppercase tracking-widest text-zinc-500 group-hover:text-blue-600 transition-colors">
               Produits
             </CardTitle>
-            <div className="h-10 w-10 bg-blue-100 rounded-xl flex items-center justify-center">
-              <Package className="h-5 w-5 text-blue-600" />
+            <div className="h-9 w-9 bg-blue-100 rounded-lg flex items-center justify-center">
+              <Package className="h-4.5 w-4.5 text-blue-600" />
             </div>
           </CardHeader>
           <CardContent className="p-6">
-            <div className="text-4xl font-black text-zinc-900 mb-4">{stats.products}</div>
-            <Link href={`/admin/${tenantId}/products`} className="flex items-center text-blue-600 font-black uppercase tracking-widest text-xs hover:text-blue-700">
-              Gérer les produits <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
+            <div className="text-3xl font-black text-zinc-900 mb-3">{stats.products}</div>
+            <Link href={`/admin/${tenantId}/products`} className="flex items-center text-blue-600 font-black uppercase tracking-widest text-[10px] hover:text-blue-700">
+              Gérer <ArrowRight className="h-3 w-3 ml-1.5 group-hover:translate-x-1 transition-transform" />
             </Link>
           </CardContent>
         </Card>
@@ -191,17 +277,17 @@ export default function AdminDashboardPage() {
         {/* Clients Stat Card */}
         <Card className="border-2 border-zinc-200 bg-white hover:border-emerald-600 transition-colors shadow-sm rounded-3xl overflow-hidden group">
           <CardHeader className="p-6 bg-zinc-50 border-b border-zinc-100 flex flex-row items-center justify-between group-hover:bg-emerald-50/50 transition-colors">
-            <CardTitle className="text-sm font-black uppercase tracking-widest text-zinc-500 group-hover:text-emerald-600 transition-colors">
+            <CardTitle className="text-xs font-black uppercase tracking-widest text-zinc-500 group-hover:text-emerald-600 transition-colors">
               Clients
             </CardTitle>
-            <div className="h-10 w-10 bg-emerald-100 rounded-xl flex items-center justify-center">
-              <Users className="h-5 w-5 text-emerald-600" />
+            <div className="h-9 w-9 bg-emerald-100 rounded-lg flex items-center justify-center">
+              <Users className="h-4.5 w-4.5 text-emerald-600" />
             </div>
           </CardHeader>
           <CardContent className="p-6">
-            <div className="text-4xl font-black text-zinc-900 mb-4">{stats.clients}</div>
-            <Link href={`/admin/${tenantId}/clients`} className="flex items-center text-emerald-600 font-black uppercase tracking-widest text-xs hover:text-emerald-700">
-              Voir les clients <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
+            <div className="text-3xl font-black text-zinc-900 mb-3">{stats.clients}</div>
+            <Link href={`/admin/${tenantId}/clients`} className="flex items-center text-emerald-600 font-black uppercase tracking-widest text-[10px] hover:text-emerald-700">
+              Voir <ArrowRight className="h-3 w-3 ml-1.5 group-hover:translate-x-1 transition-transform" />
             </Link>
           </CardContent>
         </Card>

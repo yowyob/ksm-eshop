@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { ShoppingCart, Eye, Package } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCustomerAuthStore } from '@/store/useCustomerAuthStore';
+import { useTranslations } from 'next-intl';
 
 interface ProductCardProps {
   product: Product;
@@ -31,6 +32,7 @@ function parseVariantLabel(product: any): { label: string; values: string[] } | 
 }
 
 export default function ProductCard({ product, tenantSlug }: ProductCardProps) {
+  const t = useTranslations('Product');
   const router = useRouter();
   const isAuthenticated = useCustomerAuthStore((state) => state.isAuthenticated);
   
@@ -82,12 +84,12 @@ export default function ProductCard({ product, tenantSlug }: ProductCardProps) {
           </div>
           {stock <= 5 && stock > 0 && (
             <span className="absolute top-3 right-3 bg-orange-600 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-tighter shadow-md animate-pulse">
-              Stock Limité ({stock})
+              {t('limitedStock', {qty: stock})}
             </span>
           )}
           {stock === 0 && (
             <span className="absolute top-3 right-3 bg-red-600 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-tighter shadow-md">
-              Épuisé
+              {t('outOfStock')}
             </span>
           )}
         </div>
@@ -109,7 +111,7 @@ export default function ProductCard({ product, tenantSlug }: ProductCardProps) {
             onClick={handleAddToCart}
           >
             <ShoppingCart className="h-4 w-4" />
-            Ajouter au panier
+            {t('addToCart')}
           </Button>
         </CardFooter>
       </Card>

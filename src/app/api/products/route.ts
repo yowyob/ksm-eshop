@@ -146,7 +146,7 @@ export async function GET(request: NextRequest) {
     orgs = orgs.filter((org: any) => !isOrgSuspended(org.id));
 
     if (orgs.length === 0) {
-      return Response.json({ success: true, data: [] }); // plus de fallback avec les mocks des orgs suspendues
+      return Response.json({ success: true, data: mockProducts.filter(p => p.status === 'ACTIVE') });
     }
 
     // Fetch products for each organization
@@ -258,19 +258,23 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // Retourner uniquement la liste des produits actifs
+    // Si aucun produit actif n'est présent sur le Kernel, renvoyer les produits de démonstration
+    const finalContent = activeContent.length > 0 
+      ? activeContent 
+      : mockProducts.filter(p => p.status === 'ACTIVE' && (p.organizationId === organizationId || organizationId === 'ALL'));
+    
     if (Array.isArray(result.data)) {
-      return Response.json({ ...result, data: activeContent });
+      return Response.json({ ...result, data: finalContent });
     } else if (result.data.content) {
       return Response.json({ 
         ...result, 
         data: { 
           ...result.data, 
-          content: activeContent 
+          content: finalContent 
         } 
       });
     }
-    return Response.json({ ...result, data: activeContent });
+    return Response.json({ ...result, data: finalContent });
   }
 
   return Response.json(result);

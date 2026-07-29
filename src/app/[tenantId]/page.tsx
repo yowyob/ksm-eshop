@@ -6,10 +6,29 @@ import ProductCard from '@/components/shop/ProductCard';
 import Link from 'next/link';
 import { ArrowRight, ShoppingBag, LayoutGrid, Loader2, AlertTriangle, Building2 } from 'lucide-react';
 import { useParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { KernelProduct, Organization, Product } from '@/lib/types';
+
+function splitImagesString(str: string): string[] {
+  if (!str) return [];
+  const rawParts = str.split(',').map(s => s.trim()).filter(Boolean);
+  const result: string[] = [];
+  
+  for (let i = 0; i < rawParts.length; i++) {
+    const part = rawParts[i];
+    if (part.startsWith('data:image/') && part.endsWith('base64') && i + 1 < rawParts.length) {
+      result.push(part + ',' + rawParts[i + 1]);
+      i++;
+    } else {
+      result.push(part);
+    }
+  }
+  return result;
+}
 
 export default function ShopHomePage() {
   const params = useParams();
+  const t = useTranslations('Home');
   const tenantId = params.tenantId as string;
 
   const [organization, setOrganization] = useState<Organization | null>(null);
@@ -35,7 +54,7 @@ export default function ShopHomePage() {
           if (found) {
             setOrganization(found);
           } else {
-            setOrganization({ id: tenantId, name: 'Boutique Officielle', description: `Boutique officielle .` });
+            setOrganization({ id: tenantId, name: t('defaultShopName'), description: t('noProductsSub') });
           }
         }
 
@@ -62,7 +81,7 @@ export default function ShopHomePage() {
             status: (kp.status as any) || 'ACTIVE',
             createdAt: kp.createdAt || new Date().toISOString(),
             isFeatured: true, // tout afficher par défaut en vedette
-            imageUrl: kp.photo || kp.imageUrl || '',
+            imageUrl: splitImagesString(kp.photo || kp.imageUrl || '')[0] || '',
             price: kp.unitPrice || 0,
             stock: kp.quantity || 0,
             variantLabel: (kp as any).variantLabel || 'Standard'
@@ -88,7 +107,7 @@ export default function ShopHomePage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] bg-zinc-50">
         <Loader2 className="h-12 w-12 text-blue-600 animate-spin mb-4" />
-        <p className="text-sm font-black uppercase tracking-widest text-zinc-500">Chargement de la boutique ...</p>
+        <p className="text-sm font-black uppercase tracking-widest text-zinc-500">{t('loading')}</p>
       </div>
     );
   }
@@ -118,8 +137,8 @@ export default function ShopHomePage() {
     );
   }
 
-  const orgName = organization?.name || 'Boutique Officielle';
-  const orgDesc = organization?.description || `Bienvenue dans la boutique officielle synchronisée .`;
+  const orgName = organization?.name || t('defaultShopName');
+  const orgDesc = organization?.description || `t('noProductsSub')`;
 
   return (
     <div className="flex flex-col gap-12 pb-16 bg-zinc-50 min-h-screen">
@@ -144,7 +163,7 @@ export default function ShopHomePage() {
             <div className="flex flex-wrap gap-4">
               <Link href={`/${tenantId}/products`}>
                 <Button size="lg" className="h-16 px-8 text-lg font-black uppercase italic tracking-tighter bg-blue-600 hover:bg-blue-700 shadow-xl shadow-blue-100">
-                  <LayoutGrid className="mr-2 h-6 w-6" /> Voir tout le catalogue
+                  <LayoutGrid className="mr-2 h-6 w-6" /> {t('catalogButton')}
                 </Button>
               </Link>
             </div>
@@ -176,11 +195,11 @@ export default function ShopHomePage() {
       <section className="container mx-auto px-4">
         <div className="flex items-end justify-between border-b-2 border-zinc-200 pb-6 mb-10">
           <div>
-            <h2 className="text-3xl font-black tracking-tighter text-zinc-900 uppercase italic">Produits de l&apos;Organisation</h2>
-            <p className="mt-2 text-zinc-500 font-bold uppercase text-xs tracking-widest">Articles enregistrés  pour cette enseigne</p>
+            <h2 className="text-3xl font-black tracking-tighter text-zinc-900 uppercase italic">{t('orgProducts')}</h2>
+            <p className="mt-2 text-zinc-500 font-bold uppercase text-xs tracking-widest">{t('subTitle')}</p>
           </div>
           <Link href={`/${tenantId}/products`} className="group flex items-center gap-2 text-sm font-black uppercase tracking-widest text-blue-600 hover:text-zinc-900 transition-colors">
-            Voir le catalogue complet <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+            {t('viewCatalog')} <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
           </Link>
         </div>
 
@@ -193,7 +212,7 @@ export default function ShopHomePage() {
         ) : (
           <div className="bg-white border-4 border-dashed border-zinc-200 rounded-3xl p-20 text-center">
             <ShoppingBag className="h-16 w-16 text-zinc-300 mx-auto mb-4" />
-            <p className="text-xl font-black text-zinc-400 uppercase tracking-tighter">Aucun produit trouvé pour cette organisation</p>
+            <p className="text-xl font-black text-zinc-400 uppercase tracking-tighter">{t('noProducts')}</p>
             <p className="text-xs text-zinc-400 mt-2 font-bold uppercase tracking-widest">Les produits ajoutés  s&apos;afficheront automatiquement ici.</p>
           </div>
         )}
@@ -207,8 +226,8 @@ export default function ShopHomePage() {
               <span className="text-2xl">⚡</span>
             </div>
             <div>
-              <p className="font-black text-zinc-900 uppercase italic text-sm tracking-tighter">Paiement ePay</p>
-              <p className="text-xs font-bold text-zinc-500">Transaction sécurisée KSM</p>
+              <p className="font-black text-zinc-900 uppercase italic text-sm tracking-tighter">{t('epay')}</p>
+              <p className="text-xs font-bold text-zinc-500">{t('epaySub')}</p>
             </div>
           </div>
           <div className="bg-white border-2 border-zinc-200 p-6 rounded-2xl flex items-center gap-5 shadow-sm">
@@ -216,8 +235,8 @@ export default function ShopHomePage() {
               <span className="text-2xl">📦</span>
             </div>
             <div>
-              <p className="font-black text-zinc-900 uppercase italic text-sm tracking-tighter">Retrait Immédiat</p>
-              <p className="text-xs font-bold text-zinc-500">Stock physique vérifié</p>
+              <p className="font-black text-zinc-900 uppercase italic text-sm tracking-tighter">{t('pickup')}</p>
+              <p className="text-xs font-bold text-zinc-500">{t('pickupSub')}</p>
             </div>
           </div>
           <div className="bg-white border-2 border-zinc-200 p-6 rounded-2xl flex items-center gap-5 shadow-sm">
@@ -225,8 +244,8 @@ export default function ShopHomePage() {
               <span className="text-2xl">🛡️</span>
             </div>
             <div>
-              <p className="font-black text-zinc-900 uppercase italic text-sm tracking-tighter">Qualité KSM</p>
-              <p className="text-xs font-bold text-zinc-500">Boutique certifiée locale</p>
+              <p className="font-black text-zinc-900 uppercase italic text-sm tracking-tighter">{t('quality')}</p>
+              <p className="text-xs font-bold text-zinc-500">{t('qualitySub')}</p>
             </div>
           </div>
         </div>

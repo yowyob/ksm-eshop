@@ -57,7 +57,8 @@ export default function AdminLoginPage() {
         setLoading(false);
       } else {
         login(email);
-        router.push('/admin/organizations');
+        const targetRoute = email.toLowerCase().trim() === 'testk965@yowyob.com' ? '/admin/super-admin' : '/admin/organizations';
+        router.push(targetRoute);
       }
     } catch (err: any) {
       setError(err.message || 'Erreur réseau.');
@@ -84,7 +85,8 @@ export default function AdminLoginPage() {
         setLoading(false);
       } else {
         login(email);
-        router.push('/admin/organizations');
+        const targetRoute = email.toLowerCase().trim() === 'testk965@yowyob.com' ? '/admin/super-admin' : '/admin/organizations';
+        router.push(targetRoute);
       }
     } catch (err: any) {
       setError(err.message || 'Erreur réseau lors de la validation du code.');

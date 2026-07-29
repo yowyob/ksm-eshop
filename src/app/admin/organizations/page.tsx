@@ -9,7 +9,8 @@ import {
   ShieldCheck,
   Store,
   ChevronRight,
-  Plus
+  Plus,
+  Loader2
 } from 'lucide-react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -27,6 +28,16 @@ export default function OrganizationsPage() {
     setIsMounted(true);
   }, []);
 
+  useEffect(() => {
+    if (isMounted && user) {
+      const email = user.email?.toLowerCase().trim();
+      const username = user.username?.toLowerCase().trim();
+      if (email === 'testk965@yowyob.com' || username === 'testk965@yowyob.com') {
+        router.replace('/admin/super-admin');
+      }
+    }
+  }, [isMounted, user, router]);
+
   const handleLogout = async () => {
     await fetch('/api/admin/auth/logout', { method: 'POST' });
     logout();
@@ -34,6 +45,9 @@ export default function OrganizationsPage() {
   };
 
   const fetchOrganizations = useCallback(async () => {
+    if (user?.email?.toLowerCase().trim() === 'testk965@yowyob.com') {
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -65,6 +79,15 @@ export default function OrganizationsPage() {
     fetchOrganizations();
   }, [fetchOrganizations]);
 
+  if (user?.email?.toLowerCase().trim() === 'testk965@yowyob.com' || user?.username?.toLowerCase().trim() === 'testk965@yowyob.com') {
+    return (
+      <div className="min-h-screen bg-zinc-50 flex flex-col items-center justify-center">
+        <Loader2 className="h-12 w-12 text-zinc-900 animate-spin mb-4" />
+        <p className="text-sm font-black uppercase tracking-widest text-zinc-500">Chargement de votre espace admin...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-zinc-50 flex flex-col">
       {/* Top Navigation */}
@@ -85,9 +108,8 @@ export default function OrganizationsPage() {
                 <span className="text-xs font-medium text-zinc-500 mr-4">
                   Connecté en tant que: <strong className="text-zinc-900">{user?.name || 'Inconnu'}</strong>
                 </span>
-                {(user?.email?.toLowerCase().trim() === 'atenaornella@gmail.com' || 
-                  user?.username?.toLowerCase().trim() === 'atenaornella@gmail.com' || 
-                  user?.name?.toLowerCase().trim() === 'atenaornella@gmail.com') && (
+                {(user?.email?.toLowerCase().trim() === 'testk965@yowyob.com' || 
+                  user?.username?.toLowerCase().trim() === 'testk965@yowyob.com') && (
                   <Button onClick={() => router.push('/admin/super-admin')} className="bg-amber-500 hover:bg-amber-600 text-white font-black uppercase tracking-widest text-xs shadow-lg shadow-amber-500/20">
                     <ShieldCheck className="h-4 w-4 mr-2" />
                     Super Admin

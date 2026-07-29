@@ -53,6 +53,7 @@ async function updateProduct(request: NextRequest, { params }: { params: Promise
       categoryCode: body.categoryCode ?? body.familyCode ?? null,
       photo:        body.photo ?? body.imageUrl ?? '',
       status:       body.status ?? 'ACTIVE',
+      allowedSaleSizes: body.allowedSaleSizes ?? []
     };
 
     const BACKEND = getKernelBase();

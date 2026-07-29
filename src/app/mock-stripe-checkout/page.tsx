@@ -10,6 +10,7 @@ import { useState, Suspense } from 'react';
 function MockStripeContent() {
   const searchParams = useSearchParams();
   const orderIds = searchParams.get('orderIds');
+  const rechargeWalletId = searchParams.get('rechargeWalletId');
   const amountParam = searchParams.get('amount');
   const amount = amountParam ? parseInt(amountParam, 10) : 0;
   
@@ -19,22 +20,39 @@ function MockStripeContent() {
   const handlePayment = async () => {
     setIsPaying(true);
     
-    // Simuler le délai de traitement bancaire
+    // Simuler le délai de traitement bancaire/télécom
     await new Promise(r => setTimeout(r, 2000));
 
-    // Envoyer le webhook pour simuler la notification Stripe -> Serveur
     try {
-      await fetch('/api/webhooks/payment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          event: 'TRANSACTION_SUCCEEDED',
-          metadata: { orderIds }
-        })
-      });
-      
-      // Rediriger vers la page de succès de l'application
-      router.push(`/checkout/success?orderIds=${orderIds}`);
+      if (rechargeWalletId) {
+        // Appeler notre endpoint de crédit de simulation
+        const creditRes = await fetch('/api/payments/my-wallet/credit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ amount })
+        });
+        const creditData = await creditRes.json();
+        if (creditData.success) {
+          alert('Votre portefeuille a été rechargé de ' + amount + ' FCFA avec succès !');
+          router.push('/account/wallet');
+        } else {
+          alert(creditData.message || 'Impossible de créditer le compte de simulation.');
+          setIsPaying(false);
+        }
+      } else {
+        // Envoyer le webhook pour simuler la notification Stripe -> Serveur
+        await fetch('/api/webhooks/payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            event: 'TRANSACTION_SUCCEEDED',
+            metadata: { orderIds }
+          })
+        });
+        
+        // Rediriger vers la page de succès de l'application
+        router.push(`/checkout/success?orderIds=${orderIds}`);
+      }
     } catch (e) {
       console.error(e);
       alert('Erreur lors de la simulation du paiement.');
@@ -43,7 +61,11 @@ function MockStripeContent() {
   };
 
   const handleCancel = () => {
-    router.push('/checkout/cancel');
+    if (rechargeWalletId) {
+      router.push('/account/wallet');
+    } else {
+      router.push('/checkout/cancel');
+    }
   };
 
   return (
@@ -54,35 +76,48 @@ function MockStripeContent() {
             <Lock className="h-4 w-4 text-zinc-500" />
             <span className="text-zinc-500 font-bold uppercase tracking-widest text-xs">Paiement Sécurisé (Simulation)</span>
           </div>
-          <h1 className="text-2xl font-black italic uppercase text-zinc-900">Yowyob Stripe Checkout</h1>
+          <h1 className="text-2xl font-black italic uppercase text-zinc-900">
+            {rechargeWalletId ? 'Yowyob Wallet Gateway' : 'Yowyob Stripe Checkout'}
+          </h1>
         </div>
 
         <Card className="shadow-2xl border-0 overflow-hidden rounded-2xl">
           <CardHeader className="bg-zinc-900 text-white p-8 text-center">
-            <p className="text-zinc-400 font-bold uppercase tracking-widest text-xs mb-2">Montant à payer</p>
+            <p className="text-zinc-400 font-bold uppercase tracking-widest text-xs mb-2">Montant de la recharge</p>
             <div className="text-4xl font-black italic tracking-tighter">{formatPrice(amount)}</div>
-            <p className="text-zinc-400 text-sm mt-2">Ref: {orderIds}</p>
+            <p className="text-zinc-400 text-sm mt-2">Ref: {rechargeWalletId ? `Portefeuille #${rechargeWalletId.substring(0, 8)}...` : orderIds}</p>
           </CardHeader>
           <CardContent className="p-8 bg-white space-y-6">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-xs font-black uppercase tracking-widest text-zinc-500">Numéro de carte</label>
-                <div className="relative">
-                  <CreditCard className="absolute left-3 top-3 h-5 w-5 text-zinc-400" />
-                  <input disabled value="**** **** **** 4242" className="w-full pl-10 pr-4 py-3 bg-zinc-100 border-2 border-zinc-200 rounded-lg text-zinc-500 font-bold" />
+            {rechargeWalletId ? (
+              <div className="space-y-4 text-center">
+                <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100">
+                  <p className="text-xs font-black uppercase text-blue-600 tracking-wider mb-1">Paiement Mobile / Carte</p>
+                  <p className="text-sm font-bold text-zinc-700">
+                    Veuillez valider la transaction simulée sur votre terminal pour créditer immédiatement le portefeuille.
+                  </p>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+            ) : (
+              <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-xs font-black uppercase tracking-widest text-zinc-500">Expiration</label>
-                  <input disabled value="12/28" className="w-full px-4 py-3 bg-zinc-100 border-2 border-zinc-200 rounded-lg text-zinc-500 font-bold text-center" />
+                  <label className="text-xs font-black uppercase tracking-widest text-zinc-500">Numéro de carte</label>
+                  <div className="relative">
+                    <CreditCard className="absolute left-3 top-3 h-5 w-5 text-zinc-400" />
+                    <input disabled value="**** **** **** 4242" className="w-full pl-10 pr-4 py-3 bg-zinc-100 border-2 border-zinc-200 rounded-lg text-zinc-500 font-bold" />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-black uppercase tracking-widest text-zinc-500">CVC</label>
-                  <input disabled value="***" className="w-full px-4 py-3 bg-zinc-100 border-2 border-zinc-200 rounded-lg text-zinc-500 font-bold text-center" />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-zinc-500">Expiration</label>
+                    <input disabled value="12/28" className="w-full px-4 py-3 bg-zinc-100 border-2 border-zinc-200 rounded-lg text-zinc-500 font-bold text-center" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase tracking-widest text-zinc-500">CVC</label>
+                    <input disabled value="***" className="w-full px-4 py-3 bg-zinc-100 border-2 border-zinc-200 rounded-lg text-zinc-500 font-bold text-center" />
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
             <Button 
               onClick={handlePayment} 
@@ -94,7 +129,7 @@ function MockStripeContent() {
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Traitement...
                 </>
               ) : (
-                `Payer ${formatPrice(amount)}`
+                rechargeWalletId ? `Confirmer la Recharge` : `Payer ${formatPrice(amount)}`
               )}
             </Button>
             

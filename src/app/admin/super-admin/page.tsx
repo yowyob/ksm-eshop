@@ -20,15 +20,28 @@ import {
   MoreVertical,
   Ban,
   CheckCircle2,
+  AlertTriangle,
+  LogOut,
 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function SuperAdminPage() {
   const router = useRouter();
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated, logout } = useAuthStore();
+
+  const handleLogout = async () => {
+    await fetch('/api/admin/auth/logout', { method: 'POST' });
+    logout();
+    router.push('/admin/login');
+  };
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'transactions' | 'users' | 'organizations'>('organizations');
   const [search, setSearch] = useState('');
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
   const [suspendedOrgs, setSuspendedOrgs] = useState<Record<string, boolean>>({});
   const [suspendMenuOpen, setSuspendMenuOpen] = useState<string | null>(null); // orgId open
 
@@ -44,16 +57,22 @@ export default function SuperAdminPage() {
   });
 
   useEffect(() => {
+    if (!isMounted) return;
+
     if (!isAuthenticated) {
       router.push('/admin/login');
       return;
     }
     
-    if (
-      user?.email?.toLowerCase().trim() !== 'atenaornella@gmail.com' &&
-      user?.name?.toLowerCase().trim() !== 'atenaornella@gmail.com'
-    ) {
-      router.push('/admin/organizations');
+    if (user) {
+      const email = user.email?.toLowerCase().trim();
+      const username = user.username?.toLowerCase().trim();
+      if (email !== 'testk965@yowyob.com' && username !== 'testk965@yowyob.com') {
+        router.push('/admin/organizations');
+        return;
+      }
+    } else {
+      // Attendre que l'utilisateur soit chargé avant de rediriger
       return;
     }
 
@@ -92,7 +111,7 @@ export default function SuperAdminPage() {
     };
 
     fetchStats();
-  }, [isAuthenticated, router]);
+  }, [isMounted, isAuthenticated, user, router]);
 
   const filteredOrders = stats.orders.filter((o) => {
     if (!search) return true;
@@ -136,11 +155,9 @@ export default function SuperAdminPage() {
               <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest leading-none">Accès Restreint</p>
             </div>
           </div>
-          <Link href="/admin/organizations">
-            <Button variant="ghost" className="text-zinc-400 hover:text-white hover:bg-zinc-800 font-bold text-xs uppercase tracking-widest">
-              <ArrowLeft className="h-4 w-4 mr-2" /> Retour aux orgs
-            </Button>
-          </Link>
+          <Button onClick={handleLogout} variant="ghost" className="text-zinc-400 hover:text-red-500 hover:bg-zinc-800 font-bold text-xs uppercase tracking-widest">
+            <LogOut className="h-4 w-4 mr-2" /> Déconnexion
+          </Button>
         </div>
       </header>
 
@@ -154,27 +171,26 @@ export default function SuperAdminPage() {
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 mb-12">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5 mb-12">
 
           <Card className={`border-2 shadow-xl rounded-3xl bg-white overflow-hidden cursor-pointer hover:scale-[1.02] transition-all col-span-1 ${activeTab === 'organizations' ? 'border-blue-600 ring-4 ring-blue-600/20' : 'border-zinc-200 hover:border-blue-500'}`}
             onClick={() => setActiveTab('organizations')}>
             <CardContent className="p-6 flex flex-col items-center text-center">
-              <div className="h-12 w-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-4">
-                <Building2 className="h-6 w-6" />
+              <div className="h-11 w-11 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center mb-3">
+                <Building2 className="h-5.5 w-5.5" />
               </div>
               <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-1">Total Orgs</h3>
-              <p className="text-4xl font-black text-zinc-900">{stats.totalOrganizations}</p>
+              <p className="text-3xl font-black text-zinc-900">{stats.totalOrganizations}</p>
             </CardContent>
           </Card>
 
-          <Card className={`border-2 shadow-xl rounded-3xl bg-white overflow-hidden cursor-pointer hover:scale-[1.02] transition-all col-span-1 ${activeTab === 'users' ? 'border-indigo-600 ring-4 ring-indigo-600/20' : 'border-zinc-200 hover:border-indigo-500'}`}
-            onClick={() => setActiveTab('users')}>
+          <Card className="border-2 shadow-xl rounded-3xl bg-white overflow-hidden border-zinc-200 col-span-1">
             <CardContent className="p-6 flex flex-col items-center text-center">
-              <div className="h-12 w-12 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mb-4">
-                <Users className="h-6 w-6" />
+              <div className="h-11 w-11 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center mb-3">
+                <Users className="h-5.5 w-5.5" />
               </div>
               <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-1">Utilisateurs</h3>
-              <p className="text-4xl font-black text-zinc-900">{stats.totalUsers}</p>
+              <p className="text-3xl font-black text-zinc-900">{stats.totalUsers}</p>
             </CardContent>
           </Card>
 
@@ -182,25 +198,38 @@ export default function SuperAdminPage() {
             className={`border-2 shadow-xl rounded-3xl bg-white overflow-hidden cursor-pointer hover:scale-[1.02] transition-all col-span-1 ${activeTab === 'transactions' ? 'border-purple-600 ring-4 ring-purple-600/20' : 'border-zinc-200 hover:border-purple-500'}`}
             onClick={() => setActiveTab('transactions')}>
             <CardContent className="p-6 flex flex-col items-center text-center">
-              <div className="h-12 w-12 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center mb-4">
-                <CreditCard className="h-6 w-6" />
+              <div className="h-11 w-11 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center mb-3">
+                <CreditCard className="h-5.5 w-5.5" />
               </div>
               <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-1">Transactions</h3>
-              <p className="text-4xl font-black text-zinc-900">{stats.totalTransactions}</p>
-              <div className="mt-3 text-[10px] font-bold text-purple-600 bg-purple-50 px-3 py-1 rounded-full uppercase tracking-widest">
+              <p className="text-3xl font-black text-zinc-900">{stats.totalTransactions}</p>
+              <div className="mt-2 text-[9px] font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full uppercase tracking-widest">
                 Voir la liste
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-2 border-amber-500 shadow-xl shadow-amber-500/10 rounded-3xl bg-amber-50 overflow-hidden lg:scale-105 z-10 col-span-2 md:col-span-1">
+          <Card className="border-2 shadow-xl rounded-3xl bg-white overflow-hidden border-zinc-200 col-span-1">
             <CardContent className="p-6 flex flex-col items-center text-center">
-              <div className="h-12 w-12 bg-amber-500 text-white rounded-full flex items-center justify-center mb-4 shadow-lg shadow-amber-500/30">
-                <TrendingUp className="h-6 w-6" />
+              <div className="h-11 w-11 bg-red-50 text-red-600 rounded-xl flex items-center justify-center mb-3">
+                <AlertTriangle className="h-5.5 w-5.5" />
+              </div>
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-1">Incidents</h3>
+              <p className="text-3xl font-black text-zinc-900">0</p>
+              <div className="mt-2 text-[9px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full uppercase tracking-widest">
+                Aucun incident
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-2 border-amber-500 shadow-xl shadow-amber-500/10 rounded-3xl bg-amber-50 overflow-hidden col-span-2 md:col-span-1">
+            <CardContent className="p-6 flex flex-col items-center text-center">
+              <div className="h-11 w-11 bg-amber-500 text-white rounded-xl flex items-center justify-center mb-3 shadow-md shadow-amber-500/30">
+                <TrendingUp className="h-5.5 w-5.5" />
               </div>
               <h3 className="text-[10px] font-black uppercase tracking-widest text-amber-700 mb-1">Revenu KSM (5%)</h3>
-              <p className="text-3xl font-black text-amber-600">{formatPrice(stats.totalRevenue)}</p>
-              <p className="text-[10px] text-amber-500 font-bold mt-1">XAF</p>
+              <p className="text-2xl font-black text-amber-600">{formatPrice(stats.totalRevenue)}</p>
+              <p className="text-[9px] text-zinc-400 font-bold mt-1 uppercase">Sur Volume d'Affaires Brut : {formatPrice(stats.totalRevenue * 20)}</p>
             </CardContent>
           </Card>
         </div>
@@ -323,33 +352,7 @@ export default function SuperAdminPage() {
         )}
 
 
-        {/* Users Tab */}
-        {activeTab === 'users' && (
-          <div className="bg-white rounded-3xl p-8 border-2 border-zinc-200 shadow-xl animate-in fade-in slide-in-from-bottom-8 duration-500">
-            <h3 className="text-xl font-black uppercase tracking-tighter text-zinc-900 mb-6 pb-4 border-b border-zinc-100">
-              Utilisateurs Locaux ({stats.users?.length || 0})
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {(stats.users || []).map((u: any) => (
-                <div key={u.id} className="flex items-center gap-3 p-4 rounded-2xl border-2 border-zinc-100 hover:border-indigo-200 transition-colors bg-zinc-50">
-                  <div className="h-10 w-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-black text-sm flex-shrink-0">
-                    {(u.firstName?.[0] || u.username?.[0] || '?').toUpperCase()}
-                  </div>
-                  <div>
-                    <p className="font-bold text-zinc-900 text-sm">{u.firstName} {u.lastName}</p>
-                    <p className="text-xs text-zinc-400 font-mono">{u.email || u.username}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-            {(!stats.users || stats.users.length === 0) && (
-              <div className="text-center py-12">
-                <Users className="h-12 w-12 text-zinc-300 mx-auto mb-4" />
-                <p className="text-zinc-500 font-bold uppercase tracking-widest">Aucun utilisateur trouvé</p>
-              </div>
-            )}
-          </div>
-        )}
+
 
         {/* Organizations Tab (All Orgs) */}
         {activeTab === 'organizations' && (
@@ -360,7 +363,7 @@ export default function SuperAdminPage() {
             <h3 className="text-xl font-black uppercase tracking-tighter text-zinc-900 mb-6 pb-4 border-b border-zinc-100">
               Toutes les Organisations ({stats.totalOrganizations})
             </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {stats.organizations
                 .map((org: any) => {
                   const orgOrders = stats.orders.filter((o: any) => o._orgId === org.id);
@@ -375,37 +378,52 @@ export default function SuperAdminPage() {
                 .sort((a, b) => b.count - a.count)
                 .map(({ org, count, revenue }) => {
                   const isSuspended = suspendedOrgs[org.id] === true;
+                  
+                  // Utiliser le plan réel de l'organisation ('free', 'monthly', 'annual')
+                  const planId = org.subscriptionPlan || 'free';
+                  const planType = planId === 'annual' 
+                    ? { name: 'Plan Annuel', color: 'bg-amber-100 text-amber-800 border-amber-200' }
+                    : planId === 'monthly'
+                      ? { name: 'Plan Mensuel', color: 'bg-blue-100 text-blue-800 border-blue-200' }
+                      : { name: 'Free Plan', color: 'bg-zinc-100 text-zinc-800 border-zinc-200' };
+
+                  const totalRevenueAll = stats.orders.reduce((acc, o) => {
+                    let a = o.grossAmount || o.netAmount || o.totalAmount || o.total;
+                    if (!a && o.lines) a = o.lines.reduce((s: number, l: any) => s + ((l.unitPrice || 0) * (l.quantity || 0)), 0);
+                    if (!a && o.quantity) a = o.quantity * (o.unitPrice || 0);
+                    return acc + (a || 0);
+                  }, 0) || 1;
+
+                  const revenuePercentage = Math.round((revenue / totalRevenueAll) * 100);
+
                   return (
                     <div
                       key={org.id}
-                      className={`relative flex items-center justify-between p-4 rounded-2xl border-2 transition-colors ${
-                        count > 0 ? 'border-zinc-100 hover:border-blue-200 bg-zinc-50' : 'border-zinc-50 hover:border-zinc-200 bg-white opacity-60'
+                      className={`relative flex flex-col justify-between p-6 rounded-3xl border-2 transition-all duration-300 ${
+                        isSuspended 
+                          ? 'border-red-200 bg-red-50/40 opacity-75 shadow-sm' 
+                          : count > 0 
+                            ? 'border-zinc-100 hover:border-blue-300 hover:shadow-xl bg-white shadow-sm' 
+                            : 'border-zinc-50 hover:border-zinc-200 bg-white/70'
                       }`}
                     >
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className={`h-10 w-10 rounded-xl flex items-center justify-center text-white font-black text-sm flex-shrink-0 ${
-                          count > 0 ? 'bg-blue-600' : 'bg-zinc-400'
-                        }`}>
-                          {(org.displayName || org.shortName || '?').charAt(0).toUpperCase()}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-bold text-zinc-900 text-sm truncate">{org.displayName || org.shortName}</p>
-                          <p className="text-xs text-zinc-400 font-mono">
-                            {count} commande{count > 1 ? 's' : ''}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        {count > 0 && (
-                          <div className="text-right">
-                            <p className="text-xs font-black text-amber-600">+{formatPrice(revenue * 0.05)}</p>
-                            <p className="text-[10px] text-zinc-400 font-bold">KSM (5%)</p>
+                      <div className="flex items-start justify-between gap-3 mb-4">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className={`h-11 w-11 rounded-2xl flex items-center justify-center text-white font-black text-sm flex-shrink-0 shadow-md ${
+                            isSuspended 
+                              ? 'bg-red-500' 
+                              : count > 0 ? 'bg-blue-600' : 'bg-zinc-400'
+                          }`}>
+                            {(org.displayName || org.shortName || '?').charAt(0).toUpperCase()}
                           </div>
-                        )}
+                          <div className="min-w-0">
+                            <p className="font-extrabold text-zinc-950 text-sm truncate leading-tight">{org.displayName || org.shortName}</p>
+                            <p className="text-[10px] text-zinc-400 font-mono mt-0.5 truncate">{org.id.slice(0, 13)}...</p>
+                          </div>
+                        </div>
 
-                        {/* 3-dot menu */}
-                        <div className="relative">
+                        {/* Dropdown 3 dots */}
+                        <div className="relative flex-shrink-0">
                           <button
                             onClick={(e) => { e.stopPropagation(); setSuspendMenuOpen(suspendMenuOpen === org.id ? null : org.id); }}
                             className="h-8 w-8 rounded-xl flex items-center justify-center text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors"
@@ -452,6 +470,37 @@ export default function SuperAdminPage() {
                           )}
                         </div>
                       </div>
+
+                      {/* Subscription Info & Orders count */}
+                      <div className="flex items-center justify-between gap-2 mb-4">
+                        <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border ${planType.color}`}>
+                          {planType.name}
+                        </span>
+                        <span className="text-xs text-zinc-500 font-bold uppercase tracking-wider">
+                          {count} commande{count > 1 ? 's' : ''}
+                        </span>
+                      </div>
+
+                      {/* Revenue Progress & Market Share */}
+                      {count > 0 ? (
+                        <div className="space-y-2 border-t border-zinc-100 pt-4 mt-2">
+                          <div className="flex justify-between items-center text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
+                            <span>Part de marché</span>
+                            <span className="text-blue-600 font-black">{revenuePercentage}%</span>
+                          </div>
+                          <div className="h-2 w-full bg-zinc-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-blue-600 rounded-full" style={{ width: `${Math.max(3, revenuePercentage)}%` }} />
+                          </div>
+                          <div className="flex justify-between items-center mt-1">
+                            <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">Gain KSM (5%)</span>
+                            <span className="text-sm font-black text-amber-600">+{formatPrice(revenue * 0.05)} <span className="text-[10px] font-bold">CFA</span></span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center py-2 bg-zinc-50 rounded-xl border border-zinc-100 mt-2">
+                          <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">Aucune vente enregistrée</p>
+                        </div>
+                      )}
                     </div>
                   );
                 })}

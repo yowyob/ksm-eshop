@@ -15,6 +15,172 @@ import {
 } from 'lucide-react';
 import { formatPrice } from '@/lib/utils';
 import { KernelProduct } from '@/lib/types';
+import { Camera, Upload } from 'lucide-react';
+
+function splitImagesString(str: string): string[] {
+  if (!str) return [];
+  const rawParts = str.split(',').map(s => s.trim()).filter(Boolean);
+  const result: string[] = [];
+  
+  for (let i = 0; i < rawParts.length; i++) {
+    const part = rawParts[i];
+    if (part.startsWith('data:image/') && part.endsWith('base64') && i + 1 < rawParts.length) {
+      result.push(part + ',' + rawParts[i + 1]);
+      i++;
+    } else {
+      result.push(part);
+    }
+  }
+  return result;
+}
+
+interface ImageGalleryManagerProps {
+  imagesString: string;
+  onChange: (value: string) => void;
+  colorTheme?: 'blue' | 'emerald';
+}
+
+function ImageGalleryManager({ imagesString, onChange, colorTheme = 'blue' }: ImageGalleryManagerProps) {
+  const images = splitImagesString(imagesString)
+    .filter(s => s && (s.startsWith('http://') || s.startsWith('https://') || s.startsWith('data:image/')));
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files) return;
+    const files = Array.from(e.target.files);
+
+    files.forEach(file => {
+      const objectUrl = URL.createObjectURL(file);
+      const img = new window.Image();
+      
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          const max_size = 400;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > max_size) {
+              height *= max_size / width;
+              width = max_size;
+            }
+          } else {
+            if (height > max_size) {
+              width *= max_size / height;
+              height = max_size;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6);
+            const updated = [...images, compressedBase64].join(',');
+            onChange(updated);
+          } else {
+            throw new Error("Canvas context 2D non disponible");
+          }
+        } catch (err) {
+          console.error("Erreur de compression, fallback base64 brut:", err);
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const updated = [...images, reader.result as string].join(',');
+            onChange(updated);
+          };
+          reader.readAsDataURL(file);
+        } finally {
+          URL.revokeObjectURL(objectUrl);
+        }
+      };
+
+      img.onerror = (err) => {
+        console.error("Erreur de chargement de l'image, fallback base64 brut:", err);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const updated = [...images, reader.result as string].join(',');
+          onChange(updated);
+        };
+        reader.readAsDataURL(file);
+        URL.revokeObjectURL(objectUrl);
+      };
+
+      img.src = objectUrl;
+    });
+  };
+
+  const removeImage = (indexToRemove: number) => {
+    const updated = images.filter((_, idx) => idx !== indexToRemove).join(',');
+    onChange(updated);
+  };
+
+  const isBlue = colorTheme === 'blue';
+
+  return (
+    <div className="space-y-4">
+      {images.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-4">
+          {images.map((img, idx) => (
+            <div key={idx} className="relative group aspect-square rounded-2xl overflow-hidden border-2 border-zinc-200 bg-zinc-50 shadow-sm transition-all hover:scale-105 hover:shadow-md">
+              <img 
+                src={img} 
+                alt={`Photo ${idx + 1}`} 
+                className="w-full h-full object-cover" 
+              />
+              <button
+                type="button"
+                onClick={() => removeImage(idx)}
+                className="absolute top-1.5 right-1.5 bg-red-600 hover:bg-red-700 text-white rounded-full p-1 shadow-lg transition-transform hover:scale-110 active:scale-95"
+                title="Supprimer l'image"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-3">
+        <label className={`flex items-center gap-2 cursor-pointer px-4 h-11 rounded-xl text-xs font-black uppercase tracking-widest border-2 transition-all ${
+          isBlue 
+            ? 'border-blue-600 text-blue-600 bg-blue-50/20 hover:bg-blue-50/50' 
+            : 'border-emerald-600 text-emerald-600 bg-emerald-50/20 hover:bg-emerald-50/50'
+        }`}>
+          <Upload className="h-4 w-4" />
+          Importer des photos
+          <input 
+            type="file" 
+            accept="image/*" 
+            multiple 
+            className="hidden" 
+            onChange={handleFileChange} 
+          />
+        </label>
+
+        <label className={`flex items-center gap-2 cursor-pointer px-4 h-11 rounded-xl text-xs font-black uppercase tracking-widest border-2 transition-all ${
+          isBlue 
+            ? 'border-blue-600 text-blue-600 bg-blue-50/20 hover:bg-blue-50/50' 
+            : 'border-emerald-600 text-emerald-600 bg-emerald-50/20 hover:bg-emerald-50/50'
+        }`}>
+          <Camera className="h-4 w-4" />
+          Prendre une photo
+          <input 
+            type="file" 
+            accept="image/*" 
+            capture="environment" 
+            className="hidden" 
+            onChange={handleFileChange} 
+          />
+        </label>
+      </div>
+
+      <div className="text-[10px] text-zinc-500 font-mono mt-2 p-2 bg-zinc-100 rounded-lg break-all">
+        <strong>Debug Galerie :</strong> {images.length} images. {images.map((img, i) => `[Img ${i+1}]: ${img.substring(0, 50)}... (${img.length} chars)`).join(' | ')}
+      </div>
+    </div>
+  );
+}
 
 export default function AdminProductsPage() {
   const { tenantId } = useParams() as { tenantId: string };
@@ -37,6 +203,12 @@ export default function AdminProductsPage() {
     quantity: '0',
     variantLabel: '',
     variantValues: '',
+    semiWholesalePrice: '',
+    semiWholesaleMinQty: '5',
+    wholesalePrice: '',
+    wholesaleMinQty: '10',
+    superWholesalePrice: '',
+    superWholesaleMinQty: '20',
   });
 
   // Edit Form States
@@ -91,6 +263,34 @@ export default function AdminProductsPage() {
         ? `${newProduct.variantLabel}: ${newProduct.variantValues}`
         : newProduct.variantLabel || 'Standard';
 
+      const allowedSaleSizes = [
+        { size: 'DETAIL', unitPrice: parseFloat(newProduct.retailPrice) || 1, minQuantity: 1, active: true }
+      ];
+      if (newProduct.semiWholesalePrice) {
+        allowedSaleSizes.push({
+          size: 'DEMIS_GROS',
+          unitPrice: parseFloat(newProduct.semiWholesalePrice),
+          minQuantity: parseInt(newProduct.semiWholesaleMinQty, 10) || 5,
+          active: true
+        });
+      }
+      if (newProduct.wholesalePrice) {
+        allowedSaleSizes.push({
+          size: 'GROS',
+          unitPrice: parseFloat(newProduct.wholesalePrice),
+          minQuantity: parseInt(newProduct.wholesaleMinQty, 10) || 10,
+          active: true
+        });
+      }
+      if (newProduct.superWholesalePrice) {
+        allowedSaleSizes.push({
+          size: 'SUPER_GROS',
+          unitPrice: parseFloat(newProduct.superWholesalePrice),
+          minQuantity: parseInt(newProduct.superWholesaleMinQty, 10) || 20,
+          active: true
+        });
+      }
+
       const payload: any = {
         organizationId: tenantId,
         name: newProduct.name,
@@ -106,6 +306,7 @@ export default function AdminProductsPage() {
         quantity: parseInt(newProduct.quantity, 10) || 0,
         sku: `SKU-${Date.now()}`,
         status: 'ACTIVE',
+        allowedSaleSizes
       };
 
       const res = await fetch('/api/admin/products', {
@@ -120,6 +321,9 @@ export default function AdminProductsPage() {
         setNewProduct({
           name: '', description: '', retailPrice: '', categoryCode: '',
           imageUrl: '', quantity: '0', variantLabel: '', variantValues: '',
+          semiWholesalePrice: '', semiWholesaleMinQty: '5',
+          wholesalePrice: '', wholesaleMinQty: '10',
+          superWholesalePrice: '', superWholesaleMinQty: '20'
         });
         await fetchProducts();
       } else {
@@ -139,18 +343,30 @@ export default function AdminProductsPage() {
     const parsedLabel  = colonIdx >= 0 ? rawLabel.slice(0, colonIdx).trim() : (rawLabel === 'Standard' ? '' : rawLabel);
     const parsedValues = colonIdx >= 0 ? rawLabel.slice(colonIdx + 1).trim() : '';
 
+    const sizes = p.allowedSaleSizes || [];
+    const detailSize = sizes.find((s: any) => s.size === 'DETAIL');
+    const semiGrosSize = sizes.find((s: any) => s.size === 'DEMIS_GROS' || s.size === 'SEMI_GROS');
+    const grosSize = sizes.find((s: any) => s.size === 'GROS');
+    const superGrosSize = sizes.find((s: any) => s.size === 'SUPER_GROS');
+
     setEditProduct({
       id: p.id,
       sku: (p as any).sku || '',
       name: p.name,
       description: p.description || '',
-      retailPrice: (p.unitPrice !== undefined ? p.unitPrice : (p.price || 0)).toString(),
+      retailPrice: (detailSize?.unitPrice || detailSize?.price || p.unitPrice || p.price || 0).toString(),
       categoryCode: p.categoryCode || p.familyCode || '',
       imageUrl: p.photo || p.imageUrl || p.image || p.picture || '',
       quantity: p.quantity !== undefined ? p.quantity : 0,
       status: p.status || 'ACTIVE',
       variantLabel: parsedLabel,
       variantValues: parsedValues,
+      semiWholesalePrice: semiGrosSize ? (semiGrosSize.unitPrice || semiGrosSize.price || '').toString() : '',
+      semiWholesaleMinQty: semiGrosSize ? (semiGrosSize.minQuantity || semiGrosSize.minQty || '5').toString() : '5',
+      wholesalePrice: grosSize ? (grosSize.unitPrice || grosSize.price || '').toString() : '',
+      wholesaleMinQty: grosSize ? (grosSize.minQuantity || grosSize.minQty || '10').toString() : '10',
+      superWholesalePrice: superGrosSize ? (superGrosSize.unitPrice || superGrosSize.price || '').toString() : '',
+      superWholesaleMinQty: superGrosSize ? (superGrosSize.minQuantity || superGrosSize.minQty || '20').toString() : '20',
     });
     setIsEditingProduct(true);
     setIsAddingProduct(false);
@@ -168,6 +384,34 @@ export default function AdminProductsPage() {
         ? `${editProduct.variantLabel}: ${editProduct.variantValues}`
         : editProduct.variantLabel || 'Standard';
 
+      const allowedSaleSizes = [
+        { size: 'DETAIL', unitPrice: parseFloat(editProduct.retailPrice) || 1, minQuantity: 1, active: true }
+      ];
+      if (editProduct.semiWholesalePrice) {
+        allowedSaleSizes.push({
+          size: 'DEMIS_GROS',
+          unitPrice: parseFloat(editProduct.semiWholesalePrice),
+          minQuantity: parseInt(editProduct.semiWholesaleMinQty, 10) || 5,
+          active: true
+        });
+      }
+      if (editProduct.wholesalePrice) {
+        allowedSaleSizes.push({
+          size: 'GROS',
+          unitPrice: parseFloat(editProduct.wholesalePrice),
+          minQuantity: parseInt(editProduct.wholesaleMinQty, 10) || 10,
+          active: true
+        });
+      }
+      if (editProduct.superWholesalePrice) {
+        allowedSaleSizes.push({
+          size: 'SUPER_GROS',
+          unitPrice: parseFloat(editProduct.superWholesalePrice),
+          minQuantity: parseInt(editProduct.superWholesaleMinQty, 10) || 20,
+          active: true
+        });
+      }
+
       const payload: any = {
         organizationId: tenantId,
         sku: editProduct.sku || editProduct.name.substring(0, 5).toUpperCase() + '-' + Date.now().toString().substring(7),
@@ -182,6 +426,7 @@ export default function AdminProductsPage() {
         categoryCode: editProduct.categoryCode || 'STANDARD',
         variantLabel: variantLabelEncoded,
         quantity: parseInt(editProduct.quantity, 10) || 0,
+        allowedSaleSizes
       };
 
       const res = await fetch(`/api/admin/products/${editProduct.id}`, {
@@ -304,7 +549,7 @@ export default function AdminProductsPage() {
               </div>
               
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Prix (CFA)</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Prix de Détail (CFA)</label>
                 <input 
                   required
                   type="number"
@@ -312,6 +557,69 @@ export default function AdminProductsPage() {
                   placeholder="Ex: 15000"
                   value={newProduct.retailPrice}
                   onChange={(e) => setNewProduct({...newProduct, retailPrice: e.target.value})}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Prix Demi-Gros (CFA)</label>
+                <input 
+                  type="number"
+                  className="w-full h-11 bg-white border-2 border-zinc-200 rounded-xl px-4 text-sm font-bold focus:border-blue-600 outline-none transition-colors"
+                  placeholder="Ex: 13500"
+                  value={newProduct.semiWholesalePrice}
+                  onChange={(e) => setNewProduct({...newProduct, semiWholesalePrice: e.target.value})}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Qté Min. Demi-Gros</label>
+                <input 
+                  type="number"
+                  className="w-full h-11 bg-white border-2 border-zinc-200 rounded-xl px-4 text-sm font-bold focus:border-blue-600 outline-none transition-colors"
+                  value={newProduct.semiWholesaleMinQty}
+                  onChange={(e) => setNewProduct({...newProduct, semiWholesaleMinQty: e.target.value})}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Prix de Gros (CFA)</label>
+                <input 
+                  type="number"
+                  className="w-full h-11 bg-white border-2 border-zinc-200 rounded-xl px-4 text-sm font-bold focus:border-blue-600 outline-none transition-colors"
+                  placeholder="Ex: 12000"
+                  value={newProduct.wholesalePrice}
+                  onChange={(e) => setNewProduct({...newProduct, wholesalePrice: e.target.value})}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Qté Min. Gros</label>
+                <input 
+                  type="number"
+                  className="w-full h-11 bg-white border-2 border-zinc-200 rounded-xl px-4 text-sm font-bold focus:border-blue-600 outline-none transition-colors"
+                  value={newProduct.wholesaleMinQty}
+                  onChange={(e) => setNewProduct({...newProduct, wholesaleMinQty: e.target.value})}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Prix Super-Gros (CFA)</label>
+                <input 
+                  type="number"
+                  className="w-full h-11 bg-white border-2 border-zinc-200 rounded-xl px-4 text-sm font-bold focus:border-blue-600 outline-none transition-colors"
+                  placeholder="Ex: 10000"
+                  value={newProduct.superWholesalePrice}
+                  onChange={(e) => setNewProduct({...newProduct, superWholesalePrice: e.target.value})}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Qté Min. Super-Gros</label>
+                <input 
+                  type="number"
+                  className="w-full h-11 bg-white border-2 border-zinc-200 rounded-xl px-4 text-sm font-bold focus:border-blue-600 outline-none transition-colors"
+                  value={newProduct.superWholesaleMinQty}
+                  onChange={(e) => setNewProduct({...newProduct, superWholesaleMinQty: e.target.value})}
                 />
               </div>
 
@@ -337,13 +645,11 @@ export default function AdminProductsPage() {
               </div>
 
               <div className="space-y-1 lg:col-span-3">
-                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Image URL (plusieurs images séparées par une virgule)</label>
-                <input 
-                  type="text"
-                  className="w-full h-11 bg-white border-2 border-zinc-200 rounded-xl px-4 text-sm font-bold focus:border-blue-600 outline-none transition-colors"
-                  placeholder="Ex: https://image1.jpg, https://image2.jpg"
-                  value={newProduct.imageUrl}
-                  onChange={(e) => setNewProduct({...newProduct, imageUrl: e.target.value})}
+                <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Photos du produit</label>
+                <ImageGalleryManager 
+                  imagesString={newProduct.imageUrl}
+                  onChange={(val) => setNewProduct({...newProduct, imageUrl: val})}
+                  colorTheme="blue"
                 />
               </div>
 
@@ -425,13 +731,84 @@ export default function AdminProductsPage() {
               </div>
               
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Prix (CFA)</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Prix de Détail (CFA)</label>
                 <input 
                   required
                   type="number"
                   className="w-full h-11 bg-white border-2 border-zinc-200 rounded-xl px-4 text-sm font-bold focus:border-emerald-600 outline-none transition-colors"
                   value={editProduct.retailPrice}
                   onChange={(e) => setEditProduct({...editProduct, retailPrice: e.target.value})}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Prix Demi-Gros (CFA)</label>
+                <input 
+                  type="number"
+                  className="w-full h-11 bg-white border-2 border-zinc-200 rounded-xl px-4 text-sm font-bold focus:border-emerald-600 outline-none transition-colors"
+                  value={editProduct.semiWholesalePrice}
+                  onChange={(e) => setEditProduct({...editProduct, semiWholesalePrice: e.target.value})}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Qté Min. Demi-Gros</label>
+                <input 
+                  type="number"
+                  className="w-full h-11 bg-white border-2 border-zinc-200 rounded-xl px-4 text-sm font-bold focus:border-emerald-600 outline-none transition-colors"
+                  value={editProduct.semiWholesaleMinQty}
+                  onChange={(e) => setEditProduct({...editProduct, semiWholesaleMinQty: e.target.value})}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Prix de Gros (CFA)</label>
+                <input 
+                  type="number"
+                  className="w-full h-11 bg-white border-2 border-zinc-200 rounded-xl px-4 text-sm font-bold focus:border-emerald-600 outline-none transition-colors"
+                  value={editProduct.wholesalePrice}
+                  onChange={(e) => setEditProduct({...editProduct, wholesalePrice: e.target.value})}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Qté Min. Gros</label>
+                <input 
+                  type="number"
+                  className="w-full h-11 bg-white border-2 border-emerald-600 outline-none transition-colors"
+                  value={editProduct.wholesaleMinQty}
+                  onChange={(e) => setEditProduct({...editProduct, wholesaleMinQty: e.target.value})}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Prix Super-Gros (CFA)</label>
+                <input 
+                  type="number"
+                  className="w-full h-11 bg-white border-2 border-zinc-200 rounded-xl px-4 text-sm font-bold focus:border-emerald-600 outline-none transition-colors"
+                  value={editProduct.superWholesalePrice || ''}
+                  onChange={(e) => setEditProduct({...editProduct, superWholesalePrice: e.target.value})}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Qté Min. Super-Gros</label>
+                <input 
+                  type="number"
+                  className="w-full h-11 bg-white border-2 border-emerald-600 outline-none transition-colors"
+                  value={editProduct.superWholesaleMinQty || '20'}
+                  onChange={(e) => setEditProduct({...editProduct, superWholesaleMinQty: e.target.value})}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Prix de Gros (CFA)</label>
+                <input 
+                  required
+                  type="number"
+                  className="w-full h-11 bg-white border-2 border-zinc-200 rounded-xl px-4 text-sm font-bold focus:border-emerald-600 outline-none transition-colors"
+                  value={editProduct.wholesalePrice}
+                  onChange={(e) => setEditProduct({...editProduct, wholesalePrice: e.target.value})}
                 />
               </div>
 
@@ -457,12 +834,11 @@ export default function AdminProductsPage() {
               </div>
 
               <div className="space-y-1 lg:col-span-3">
-                <label className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Image URL (plusieurs images séparées par une virgule)</label>
-                <input 
-                  type="text"
-                  className="w-full h-11 bg-white border-2 border-zinc-200 rounded-xl px-4 text-sm font-bold focus:border-emerald-600 outline-none transition-colors"
-                  value={editProduct.imageUrl}
-                  onChange={(e) => setEditProduct({...editProduct, imageUrl: e.target.value})}
+                <label className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Photos du produit</label>
+                <ImageGalleryManager 
+                  imagesString={editProduct.imageUrl}
+                  onChange={(val) => setEditProduct({...editProduct, imageUrl: val})}
+                  colorTheme="emerald"
                 />
               </div>
 

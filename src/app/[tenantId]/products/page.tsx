@@ -9,6 +9,25 @@ import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
 import { KernelProduct, Organization, Product } from '@/lib/types';
 
+function splitImagesString(str: string): string[] {
+  if (!str) return [];
+  const rawParts = str.split(',').map(s => s.trim()).filter(Boolean);
+  const result: string[] = [];
+  
+  for (let i = 0; i < rawParts.length; i++) {
+    const part = rawParts[i];
+    if (part.startsWith('data:image/') && part.endsWith('base64') && i + 1 < rawParts.length) {
+      result.push(part + ',' + rawParts[i + 1]);
+      i++;
+    } else {
+      result.push(part);
+    }
+  }
+  return result;
+}
+
+
+
 export default function ProductsPage() {
   const params = useParams();
   const tenantId = params.tenantId as string;
@@ -60,7 +79,7 @@ export default function ProductsPage() {
             status: (kp.status as any) || 'ACTIVE',
             createdAt: kp.createdAt || new Date().toISOString(),
             isFeatured: true,
-            imageUrl: kp.photo || kp.imageUrl || '',
+            imageUrl: splitImagesString(kp.photo || kp.imageUrl || '')[0] || '',
             price: kp.unitPrice || 0,
             stock: kp.quantity || 0,
             variantLabel: (kp as any).variantLabel || 'Standard'

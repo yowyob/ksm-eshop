@@ -12,6 +12,8 @@ import { useCustomerAuthStore } from '@/store/useCustomerAuthStore';
 import BankAccountModal from './BankAccountModal';
 import OrdersHistoryModal from './OrdersHistoryModal';
 import UserProfileModal from './UserProfileModal';
+import { useTranslations } from 'next-intl';
+import LanguageSelector from '../global/LanguageSelector';
 
 interface ShopNavbarProps {
   tenant: Tenant;
@@ -21,7 +23,8 @@ export default function ShopNavbar({ tenant }: ShopNavbarProps) {
   const router = useRouter();
   const [isMounted, setIsMounted] = useState(false);
   const items = useCartStore((state) => state.items);
-  const totalItems = items.reduce((acc, item) => acc + item.quantity, 0);
+  const totalItems = items.length;
+  const t = useTranslations('Navbar');
   
   const { user, checkAuth, setAuthenticated } = useCustomerAuthStore();
   const [loggingOut, setLoggingOut] = useState(false);
@@ -77,10 +80,10 @@ export default function ShopNavbar({ tenant }: ShopNavbarProps) {
         {/* Center: Catalogue Navigation */}
         <nav className="hidden lg:flex items-center gap-8">
           <Link href={`/${tenant.slug}/products`} className="text-sm font-black uppercase tracking-widest text-zinc-500 hover:text-zinc-900 transition-colors">
-            Catalogue
+            {t('catalog')}
           </Link>
           <Link href="#" className="text-sm font-black uppercase tracking-widest text-zinc-500 hover:text-zinc-900 transition-colors">
-            Nouveautés
+            {t('news')}
           </Link>
         </nav>
 
@@ -91,11 +94,16 @@ export default function ShopNavbar({ tenant }: ShopNavbarProps) {
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-zinc-400" />
             <input
               type="search"
-              placeholder="Chercher..."
+              placeholder={t('searchPlaceholder')}
               className="h-10 w-48 rounded-full border-2 border-zinc-200 bg-zinc-50 pl-10 pr-4 text-sm font-bold focus:border-zinc-900 focus:outline-none transition-all"
             />
           </div>
           
+          {/* Language Selector */}
+          <div className="mr-2">
+            <LanguageSelector />
+          </div>
+
           {/* Cart Icon */}
           <Link href={`/cart`}>
             <Button variant="ghost" size="icon" className="relative h-12 w-12 hover:bg-zinc-100 border-2 border-transparent hover:border-zinc-200">
@@ -126,7 +134,7 @@ export default function ShopNavbar({ tenant }: ShopNavbarProps) {
                     className="w-full text-left px-4 py-2.5 text-xs font-black uppercase tracking-wider text-zinc-700 hover:text-zinc-900 hover:bg-zinc-50 rounded-xl transition-colors flex items-center gap-2.5 cursor-pointer"
                   >
                     <User className="h-4 w-4 text-blue-600" />
-                    Mon Profil
+                    {t('myProfile')}
                   </button>
                   <button 
                     onClick={() => { setShowBankModal(true); setShowDropdown(false); }}
@@ -141,7 +149,7 @@ export default function ShopNavbar({ tenant }: ShopNavbarProps) {
                       className="w-full text-left px-4 py-2.5 text-xs font-black uppercase tracking-wider text-zinc-700 hover:text-zinc-900 hover:bg-zinc-50 rounded-xl transition-colors flex items-center gap-2.5 cursor-pointer"
                     >
                       <ShoppingBag className="h-4 w-4 text-blue-600" />
-                      Mes Commandes
+                      {t('myOrders')}
                     </button>
                   </Link>
                   <div className="h-[2px] bg-zinc-100 my-2" />

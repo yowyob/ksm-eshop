@@ -4,6 +4,7 @@ import { useState, Suspense } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Building2, ArrowRight, Eye, EyeOff, ArrowLeft, Loader2 } from 'lucide-react';
 
 import { useCustomerAuthStore } from '@/store/useCustomerAuthStore';
@@ -13,6 +14,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const t = useTranslations('Login');
   
   const isRegistered = searchParams.get('registered') === 'true';
   const requiresVerification = searchParams.get('verify') === 'true';
@@ -44,7 +46,8 @@ function LoginContent() {
           setError(data.message || 'Identifiants incorrects.');
         } else {
           useAuthStore.getState().login({ name: 'Gérant (Admin)', email: email });
-          router.push('/admin/organizations');
+          const targetRoute = email.toLowerCase().trim() === 'testk965@yowyob.com' ? '/admin/super-admin' : '/admin/organizations';
+          router.push(targetRoute);
         }
       } else {
         const res = await fetch('/api/auth/customer-login', {
@@ -57,7 +60,6 @@ function LoginContent() {
         if (data.success || res.ok) {
           if (data.data) {
             useCustomerAuthStore.getState().setAuthenticated(true, data.data);
-            useCartStore.getState().clearCart();
           }
           const redirectUrl = searchParams.get('redirect') || `/`;
           router.push(redirectUrl);
@@ -85,10 +87,10 @@ function LoginContent() {
             <Building2 className="h-8 w-8 text-white" />
           </div>
           <h2 className="mt-2 text-3xl font-black text-zinc-900 uppercase tracking-tighter italic">
-            Connexion
+            {t('title')}
           </h2>
           <p className="mt-2 text-sm font-bold text-zinc-500 uppercase tracking-widest">
-            Accédez à votre espace client
+            {t('subtitle')}
           </p>
         </div>
         
@@ -100,8 +102,7 @@ function LoginContent() {
 
         {isRegistered && requiresVerification && (
           <div className="bg-blue-50 text-blue-700 p-4 rounded-xl text-sm font-bold text-center border-2 border-blue-200">
-            Inscription réussie ! <br/>
-            Un e-mail de confirmation vous a été envoyé. Veuillez vérifier votre boîte de réception (et vos spams) et cliquer sur le lien avant de vous connecter.
+            {t('confirmEmailSent')}
           </div>
         )}
 
@@ -114,7 +115,7 @@ function LoginContent() {
           <div className="space-y-4">
             <div>
               <label htmlFor="email" className="block text-sm font-bold text-zinc-700 mb-1">
-                Adresse Email
+                {t('emailLabel')}
               </label>
               <input
                 id="email"
@@ -123,12 +124,12 @@ function LoginContent() {
                 autoComplete="email"
                 required
                 className="appearance-none relative block w-full px-4 py-3 border-2 border-zinc-200 placeholder-zinc-400 text-zinc-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent font-medium transition-all"
-                placeholder="vous@exemple.com"
+                placeholder={t('emailPlaceholder')}
               />
             </div>
             <div>
               <label htmlFor="code" className="block text-sm font-bold text-zinc-700 mb-1">
-                Mot de passe
+                {t('codeLabel')}
               </label>
               <div className="relative">
                 <input
@@ -161,7 +162,7 @@ function LoginContent() {
                 className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-zinc-300 rounded"
               />
               <label htmlFor="remember-me" className="ml-2 block text-sm font-bold text-zinc-700">
-                Se souvenir de moi
+                {t('rememberMe')}
               </label>
             </div>
 
@@ -174,21 +175,21 @@ function LoginContent() {
                 className="h-4 w-4 text-amber-600 focus:ring-amber-500 border-zinc-300 rounded"
               />
               <label htmlFor="is-admin" className="ml-2 block text-sm font-bold text-amber-700">
-                Connexion Admin
+                {t('adminLogin')}
               </label>
             </div>
           </div>
           
           <div className="text-right text-sm">
             <a href="#" className="font-bold text-blue-600 hover:text-blue-500 transition-colors">
-              Mot de passe oublié ?
+              {t('forgotOtp')}
             </a>
           </div>
 
           <div>
             <Button type="submit" disabled={loading} className="w-full h-14 text-lg font-black uppercase tracking-widest bg-zinc-900 hover:bg-zinc-800 text-white shadow-xl disabled:opacity-50">
-              {loading ? 'Connexion...' : (
-                <>Se connecter <ArrowRight className="ml-2 h-5 w-5" /></>
+              {loading ? t('loggingIn') : (
+                <>{t('loginButton')} <ArrowRight className="ml-2 h-5 w-5" /></>
               )}
             </Button>
           </div>
@@ -196,9 +197,9 @@ function LoginContent() {
 
         <div className="mt-6 text-center">
           <p className="text-sm font-bold text-zinc-600">
-            Nouveau sur la plateforme ?{' '}
+            {t('newToPlatform')}{' '}
             <Link href={`/signup`} className="text-blue-600 hover:text-blue-500 transition-colors">
-              Créer un compte
+              {t('createAccount')}
             </Link>
           </p>
         </div>

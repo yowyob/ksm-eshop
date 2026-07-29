@@ -6,12 +6,15 @@ export interface CartItem {
   variantId: string;
   productId: string;
   name: string;
-  price: number;
+  price: number; // Prix unitaire actuel résolu en fonction de la quantité
+  basePrice: number; // Prix de détail de base
   wholesalePrice?: number;
   imageUrl: string;
   quantity: number;
   tenantId?: string;
   selectedOptions?: Record<string, string>;
+  allowedSaleSizes?: any[];
+  selectedForPurchase?: boolean;
 }
 
 interface AddItemParams {
@@ -19,69 +22,193 @@ interface AddItemParams {
   variantId?: string;
   name: string;
   price: number;
+  basePrice?: number;
   wholesalePrice?: number;
   imageUrl?: string;
   tenantId?: string;
   selectedOptions?: Record<string, string>;
+  allowedSaleSizes?: any[];
+  quantity?: number;
 }
 
 interface CartState {
   items: CartItem[];
+  userId: string | null;
   addItem: (params: AddItemParams) => void;
   removeItem: (variantId: string) => void;
   updateQuantity: (variantId: string, quantity: number) => void;
+  toggleSelectForPurchase: (variantId: string) => void;
   clearCart: () => void;
+  clearCheckedItems: () => void;
+  setUserId: (userId: string | null) => void;
+}
+
+// Fonction utilitaire pour trouver le bon prix unitaire basé sur la quantité et allowedSaleSizes
+function resolveUnitPrice(quantity: number, basePrice: number, allowedSaleSizes?: any[]): number {
+  let sizes = allowedSaleSizes;
+  
+  // Si le tableau allowedSaleSizes est vide ou absent, on génère un fallback automatique (90% pour demi-gros, 80% pour gros, 70% pour super gros)
+  if (!sizes || sizes.length === 0) {
+    sizes = [
+      { size: 'DETAIL', unitPrice: basePrice, minQuantity: 1, active: true },
+      { size: 'DEMIS_GROS', unitPrice: Math.round(basePrice * 0.9), minQuantity: 5, active: true },
+      { size: 'GROS', unitPrice: Math.round(basePrice * 0.8), minQuantity: 10, active: true },
+      { size: 'SUPER_GROS', unitPrice: Math.round(basePrice * 0.7), minQuantity: 20, active: true }
+    ];
+  }
+
+  // Trier par minQuantity décroissante pour tester les plus gros paliers en premier
+  const sortedSizes = [...sizes]
+    .filter(s => s.active && typeof s.unitPrice === 'number')
+    .sort((a, b) => b.minQuantity - a.minQuantity);
+
+  for (const size of sortedSizes) {
+    if (quantity >= size.minQuantity) {
+      return size.unitPrice;
+    }
+  }
+
+  return basePrice;
 }
 
 export const useCartStore = create<CartState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       items: [],
+      userId: null,
       addItem: (params) => {
         set((state) => {
           const vId = params.variantId || params.productId;
           const existingItem = state.items.find((item) => item.id === vId);
+          const addQty = params.quantity || 1;
+          const bPrice = params.basePrice !== undefined ? params.basePrice : params.price;
+          
+          let newItems = [];
           if (existingItem) {
-            return {
-              items: state.items.map((item) =>
-                item.id === vId
-                  ? { ...item, quantity: item.quantity + 1 }
-                  : item
-              ),
-            };
-          }
-          return {
-            items: [
+            const newQty = existingItem.quantity + addQty;
+            const resolvedPrice = resolveUnitPrice(newQty, bPrice, params.allowedSaleSizes);
+            newItems = state.items.map((item) =>
+              item.id === vId
+                ? { ...item, quantity: newQty, price: resolvedPrice }
+                : item
+            );
+          } else {
+            const resolvedPrice = resolveUnitPrice(addQty, bPrice, params.allowedSaleSizes);
+            newItems = [
               ...state.items,
               {
                 id: vId,
                 variantId: vId,
                 productId: params.productId,
                 name: params.name,
-                price: params.price,
+                price: resolvedPrice,
+                basePrice: bPrice,
                 wholesalePrice: params.wholesalePrice,
                 imageUrl: params.imageUrl || '',
-                quantity: 1,
+                quantity: addQty,
                 tenantId: params.tenantId,
-                selectedOptions: params.selectedOptions
+                selectedOptions: params.selectedOptions,
+                allowedSaleSizes: params.allowedSaleSizes,
+                selectedForPurchase: true
               }
-            ]
-          };
+            ];
+          }
+
+          // Sauvegarde automatique du panier par utilisateur
+          if (state.userId && typeof window !== 'undefined') {
+            localStorage.setItem(`ksm-cart-${state.userId}`, JSON.stringify(newItems));
+          }
+          return { items: newItems };
         });
       },
       removeItem: (variantId) => {
-        set((state) => ({
-          items: state.items.filter((item) => item.id !== variantId),
-        }));
+        set((state) => {
+          const newItems = state.items.filter((item) => item.id !== variantId);
+          if (state.userId && typeof window !== 'undefined') {
+            localStorage.setItem(`ksm-cart-${state.userId}`, JSON.stringify(newItems));
+          }
+          return { items: newItems };
+        });
       },
       updateQuantity: (variantId, quantity) => {
-        set((state) => ({
-          items: state.items.map((item) =>
-            item.id === variantId ? { ...item, quantity: Math.max(0, quantity) } : item
-          ).filter(item => item.quantity > 0),
-        }));
+        set((state) => {
+          const newItems = state.items.map((item) => {
+            if (item.id === variantId) {
+              const qty = Math.max(0, quantity);
+              const resolvedPrice = resolveUnitPrice(qty, item.basePrice, item.allowedSaleSizes);
+              return { 
+                ...item, 
+                quantity: qty, 
+                price: resolvedPrice,
+                selectedForPurchase: qty === 0 ? false : item.selectedForPurchase
+              };
+            }
+            return item;
+          });
+
+          if (state.userId && typeof window !== 'undefined') {
+            localStorage.setItem(`ksm-cart-${state.userId}`, JSON.stringify(newItems));
+          }
+          return { items: newItems };
+        });
       },
-      clearCart: () => set({ items: [] }),
+      toggleSelectForPurchase: (variantId) => {
+        set((state) => {
+          const newItems = state.items.map((item) =>
+            item.id === variantId
+              ? { ...item, selectedForPurchase: !(item.selectedForPurchase !== false) }
+              : item
+          );
+          if (state.userId && typeof window !== 'undefined') {
+            localStorage.setItem(`ksm-cart-${state.userId}`, JSON.stringify(newItems));
+          }
+          return { items: newItems };
+        });
+      },
+      clearCart: () => {
+        const uId = get().userId;
+        if (uId && typeof window !== 'undefined') {
+          localStorage.removeItem(`ksm-cart-${uId}`);
+        }
+        set({ items: [] });
+      },
+      clearCheckedItems: () => {
+        set((state) => {
+          const newItems = state.items.filter((item) => item.selectedForPurchase === false);
+          if (state.userId && typeof window !== 'undefined') {
+            localStorage.setItem(`ksm-cart-${state.userId}`, JSON.stringify(newItems));
+          }
+          return { items: newItems };
+        });
+      },
+      setUserId: (uId) => {
+        if (typeof window === 'undefined') return;
+
+        if (uId) {
+          // Charger le panier spécifique de l'utilisateur s'il existe
+          const savedCart = localStorage.getItem(`ksm-cart-${uId}`);
+          if (savedCart) {
+            try {
+              const parsed = JSON.parse(savedCart);
+              set({ userId: uId, items: parsed });
+              return;
+            } catch {}
+          }
+          
+          // Si l'utilisateur n'avait pas de panier sauvegardé, on associe les articles actuels (invité) à son compte
+          const currentItems = get().items;
+          if (currentItems.length > 0) {
+            localStorage.setItem(`ksm-cart-${uId}`, JSON.stringify(currentItems));
+          }
+          set({ userId: uId });
+        } else {
+          // Déconnexion : repasser à l'état invité en chargeant le panier invité si besoin
+          // On évite de perdre le panier de l'utilisateur déconnecté
+          const guestCart = localStorage.getItem('ksm-cart-guest');
+          const guestItems = guestCart ? JSON.parse(guestCart) : [];
+          set({ userId: null, items: guestItems });
+        }
+      }
     }),
     {
       name: 'ksm-cart-storage',

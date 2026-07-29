@@ -4,6 +4,7 @@ import ShopNavbar from '@/components/shop/ShopNavbar';
 import ShopFooter from '@/components/shop/ShopFooter';
 import StoreInitializer from '@/components/shop/StoreInitializer';
 import { backendFetch } from '@/lib/api-client';
+import { getLocale } from 'next-intl/server';
 
 interface ShopLayoutProps {
  children: React.ReactNode;
@@ -11,12 +12,14 @@ interface ShopLayoutProps {
 }
 
 async function getTenantInfo(tenantId: string) {
-  let organizationName = 'Boutique Officielle';
+  const locale = await getLocale();
+  const defaultShopName = locale === 'en' ? 'Official Shop' : 'Boutique Officielle';
+  let organizationName = defaultShopName;
   try {
     const orgResult = await backendFetch(`/api/organizations/${tenantId}`);
     if (orgResult.success && orgResult.data) {
       const raw = orgResult.data;
-      organizationName = raw.displayName || raw.shortName || raw.longName || raw.name || raw.code || 'Boutique Officielle';
+      organizationName = raw.displayName || raw.shortName || raw.longName || raw.name || raw.code || defaultShopName;
     }
   } catch (e) {
     // Silent fail, use default

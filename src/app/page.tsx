@@ -9,6 +9,7 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { Organization, Product } from '@/lib/types';
 import { GlobalNavbar } from '@/components/global/GlobalNavbar';
 import { useCartStore } from '@/store/useCartStore';
+import { useTranslations } from 'next-intl';
 import { useCustomerAuthStore } from '@/store/useCustomerAuthStore';
 
 export default function GlobalMarketplacePage() {
@@ -24,6 +25,7 @@ export default function GlobalMarketplacePage() {
   const [sortOrder, setSortOrder] = useState<'NONE' | 'LOW_TO_HIGH' | 'HIGH_TO_LOW'>('NONE');
 
   const { addItem } = useCartStore();
+  const t = useTranslations('Marketplace');
 
   const parseJsonResponse = async (response: Response): Promise<any | null> => {
     const text = await response.text();
@@ -150,8 +152,8 @@ export default function GlobalMarketplacePage() {
         {/* Banner */}
         <div className="w-full bg-gradient-to-r from-blue-700 to-indigo-900 rounded-lg p-8 mb-8 text-white shadow-md relative overflow-hidden">
           <div className="relative z-10">
-            <h1 className="text-3xl font-black mb-2">Bienvenue sur KSM eShop</h1>
-            <p className="text-lg opacity-90 max-w-2xl">Découvrez des milliers de produits issus des meilleures boutiques partenaires. Commandez en un clic avec une logistique unifiée.</p>
+            <h1 className="text-3xl font-black mb-2">{t('title')}</h1>
+            <p className="text-lg opacity-90 max-w-2xl">{t('description')}</p>
           </div>
           <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-gradient-to-l from-white/20 to-transparent pointer-events-none" />
         </div>
@@ -159,18 +161,18 @@ export default function GlobalMarketplacePage() {
         {/* Filters bar */}
         <div className="flex flex-col sm:flex-row justify-between items-center bg-white p-4 rounded-lg shadow-sm mb-6 border border-zinc-200">
           <div className="text-sm font-bold text-zinc-700 mb-4 sm:mb-0">
-            {filteredAndSortedProducts.length} résultats {searchQuery && <span>pour "{searchQuery}"</span>}
+            {t('results', {count: filteredAndSortedProducts.length})} {searchQuery && <span>pour "{searchQuery}"</span>}
           </div>
           <div className="flex items-center gap-2 text-sm">
-            <label className="font-bold text-zinc-600">Trier par :</label>
+            <label className="font-bold text-zinc-600">{t('sortBy')}</label>
             <select 
               className="border border-zinc-300 rounded px-3 py-1.5 outline-none focus:border-amber-500 bg-white shadow-sm"
               value={sortOrder}
               onChange={(e) => setSortOrder(e.target.value as any)}
             >
-              <option value="NONE">Pertinence (Aléatoire)</option>
-              <option value="LOW_TO_HIGH">Prix : Croissant</option>
-              <option value="HIGH_TO_LOW">Prix : Décroissant</option>
+              <option value="NONE">{t('sortNone')}</option>
+              <option value="LOW_TO_HIGH">{t('sortAsc')}</option>
+              <option value="HIGH_TO_LOW">{t('sortDesc')}</option>
             </select>
           </div>
         </div>
@@ -178,7 +180,7 @@ export default function GlobalMarketplacePage() {
         {loading && (
           <div className="flex flex-col items-center justify-center py-20">
             <Loader2 className="h-10 w-10 text-amber-500 animate-spin mb-4" />
-            <p className="text-sm font-bold text-zinc-500">Chargement des produits...</p>
+            <p className="text-sm font-bold text-zinc-500">{t('loading')}</p>
           </div>
         )}
 
@@ -205,7 +207,7 @@ export default function GlobalMarketplacePage() {
                     />
                   ) : (
                     <div className="w-full h-full bg-zinc-100 flex items-center justify-center rounded">
-                      <span className="text-zinc-400 text-xs">Image non disponible</span>
+                      <span className="text-zinc-400 text-xs">{t('noImg')}</span>
                     </div>
                   )}
                   {/* Badge boutique */}
@@ -232,7 +234,7 @@ export default function GlobalMarketplacePage() {
                       const inStock = stockQty > 0;
                       return (
                         <div className={`text-xs font-bold mb-3 inline-block px-2 py-1 rounded-full border ${inStock ? 'text-emerald-600 bg-emerald-50 border-emerald-200' : 'text-red-600 bg-red-50 border-red-200'}`}>
-                          {inStock ? `Disponibilité : ${stockQty} en stock` : 'Épuisé'}
+                          {inStock ? t('inStock', { qty: stockQty }) : t('outOfStock')}
                         </div>
                       );
                     })()}
@@ -260,7 +262,7 @@ export default function GlobalMarketplacePage() {
                           : 'bg-blue-600 hover:bg-blue-700 text-white'
                       }`}
                     >
-                      {(product.stock ?? product.quantity ?? product.stockCount ?? 0) > 0 ? 'Ajouter au panier' : 'Épuisé'}
+                      {(product.stock ?? product.quantity ?? product.stockCount ?? 0) > 0 ? t('addToCart') : t('outOfStock')}
                     </Button>
                   </div>
                 </CardContent>
@@ -269,7 +271,7 @@ export default function GlobalMarketplacePage() {
 
             {filteredAndSortedProducts.length === 0 && (
               <div className="col-span-full text-center py-20">
-                <p className="text-zinc-500 font-bold text-lg">Aucun produit ne correspond à votre recherche.</p>
+                <p className="text-zinc-500 font-bold text-lg">{t('noMatch')}</p>
               </div>
             )}
           </div>
@@ -288,28 +290,28 @@ export default function GlobalMarketplacePage() {
                 <span className="text-lg font-black tracking-tight text-white uppercase italic">KSM eShop</span>
               </div>
               <p className="text-xs font-bold leading-relaxed max-w-sm">
-                La première plateforme camerounaise multi-boutiques connectée en direct avec le progiciel Kernel Core pour une gestion logistique parfaite.
+                {t('footerDesc')}
               </p>
             </div>
             <div className="space-y-4">
-              <h3 className="text-white font-black uppercase text-xs tracking-widest">Liens Utiles</h3>
+              <h3 className="text-white font-black uppercase text-xs tracking-widest">{t('links')}</h3>
               <ul className="space-y-2 text-xs font-bold uppercase">
-                <li><Link href="#features" className="hover:text-white transition-colors">Fonctionnalités</Link></li>
-                <li><Link href="#tenants" className="hover:text-white transition-colors">Explorer les Boutiques</Link></li>
-                <li><Link href="/admin/organizations" className="hover:text-white transition-colors">Espace Gérant</Link></li>
+                <li><Link href="#features" className="hover:text-white transition-colors">{t('features')}</Link></li>
+                <li><Link href="#tenants" className="hover:text-white transition-colors">{t('explore')}</Link></li>
+                <li><Link href="/admin/organizations" className="hover:text-white transition-colors">{t('manager')}</Link></li>
               </ul>
             </div>
             <div className="space-y-4">
-              <h3 className="text-white font-black uppercase text-xs tracking-widest">Informations</h3>
-              <p className="text-xs font-bold">Yaoundé, Cameroun</p>
-              <p className="text-xs font-bold text-zinc-500">Intégration technologique de pointe pour les PME locales.</p>
+              <h3 className="text-white font-black uppercase text-xs tracking-widest">{t('info')}</h3>
+              <p className="text-xs font-bold">{t('city')}</p>
+              <p className="text-xs font-bold text-zinc-500">{t('tech')}</p>
             </div>
           </div>
           <div className="border-t border-zinc-800 pt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
-            <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider">&copy; {new Date().getFullYear()} KSM Core System. Tous droits réservés.</p>
+            <p className="text-xs font-bold text-zinc-500 uppercase tracking-wider">&copy; {new Date().getFullYear()} KSM Core System. {t('copyright')}</p>
             <div className="flex items-center gap-2 text-zinc-600">
               <ShieldCheck className="h-4 w-4" />
-              <span className="text-[10px] uppercase font-black tracking-widest">Sécurité Chiffrée Active</span>
+              <span className="text-[10px] uppercase font-black tracking-widest">{t('security')}</span>
             </div>
           </div>
         </div>

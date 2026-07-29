@@ -259,6 +259,77 @@ export async function POST(request: NextRequest) {
       // Ngrok n'est probablement pas lancé sur 4040, on garde le baseUrl par défaut
     }
 
+    // Si paiement par portefeuille KSM
+    if (body.paymentMethod === 'WALLET') {
+      try {
+        const { getWalletByOwner, createWallet, canOperate, payWithWallet } = await import('@/lib/payments-api');
+        
+        // 1. Récupérer ou créer le portefeuille de l'acheteur
+        const buyerId = customerId || 'guest-buyer';
+        let buyerWallet = await getWalletByOwner(buyerId);
+        if (!buyerWallet) {
+          buyerWallet = await createWallet(buyerId);
+        }
+
+        // Lire la surcharge locale du solde si présente
+        const cookieStore = await cookies();
+        const override = cookieStore.get('wallet_override')?.value;
+        if (override && buyerWallet) {
+          try {
+            const parsed = JSON.parse(override);
+            if (parsed.walletId === buyerWallet.id) {
+              buyerWallet.balance = parsed.balance;
+            }
+          } catch {}
+        }
+
+        // 2. Récupérer ou créer le portefeuille de la boutique (tenant)
+        let merchantWallet = await getWalletByOwner(mainTenantId);
+        if (!merchantWallet) {
+          merchantWallet = await createWallet(mainTenantId);
+        }
+
+        // 3. Vérifier le solde
+        const hasEnough = buyerWallet.balance >= grandTotal;
+        if (!hasEnough) {
+          return Response.json({ 
+            success: false, 
+            errorCode: 'INSUFFICIENT_FUNDS',
+            message: `Solde insuffisant. Votre solde actuel est de ${buyerWallet.balance} FCFA. Il vous manque ${grandTotal - buyerWallet.balance} FCFA.`,
+            balance: buyerWallet.balance,
+            missingAmount: grandTotal - buyerWallet.balance,
+            walletId: buyerWallet.id
+          }, { status: 400 });
+        }
+
+        // 4. Procéder au virement
+        await payWithWallet(buyerWallet.id, merchantWallet.id, grandTotal, `Paiement des commandes KSM: ${orderIds}`, { orderIds });
+
+        // Mettre à jour le solde restant simulé dans le cookie
+        const newBalance = buyerWallet.balance - grandTotal;
+        cookieStore.set('wallet_override', JSON.stringify({
+          walletId: buyerWallet.id,
+          balance: newBalance
+        }), { maxAge: 60 * 60 * 24 });
+
+        // 5. Marquer la commande locale comme payée
+        ordersCreated.forEach((o: any) => {
+          o.paymentStatus = 'PAID';
+          o.status = 'CONFIRMED';
+        });
+
+        return Response.json({ 
+          success: true, 
+          paid: true, 
+          message: 'Paiement effectué avec succès par portefeuille KSM eShop.', 
+          data: ordersCreated 
+        });
+      } catch (walletError: any) {
+        console.error('[CHECKOUT WALLET ERROR]', walletError);
+        return Response.json({ success: false, message: walletError.message || 'Erreur lors du virement de portefeuille.' }, { status: 400 });
+      }
+    }
+
     const paymentPayload = {
       amount: grandTotal,
       method: 'STRIPE',

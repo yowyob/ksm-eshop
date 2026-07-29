@@ -4,11 +4,36 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Product } from '@/lib/types';
 import { useCartStore } from '@/store/useCartStore';
+import { useTranslations, useLocale } from 'next-intl';
 import { useCustomerAuthStore } from '@/store/useCustomerAuthStore';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Loader2, AlertTriangle, ArrowLeft, ShieldCheck, ShoppingCart, Tag, PackageCheck } from 'lucide-react';
 import Link from 'next/link';
+
+function translateVariantLabel(label: string, locale: string): string {
+  if (locale !== 'en') return label;
+  const l = label.toLowerCase().trim();
+  if (l === 'couleur') return 'Color';
+  if (l === 'taille') return 'Size';
+  if (l === 'mémoire') return 'Memory';
+  if (l === 'capacité') return 'Capacity';
+  return label;
+}
+
+function translateVariantValue(value: string, locale: string): string {
+  if (locale !== 'en') return value;
+  const v = value.toLowerCase().trim();
+  if (v === 'noir' || v === 'noir sidéral') return 'Space Gray';
+  if (v === 'blanc') return 'White';
+  if (v === 'rouge') return 'Red';
+  if (v === 'argent') return 'Silver';
+  if (v === 'or') return 'Gold';
+  if (v === 'bleu') return 'Blue';
+  if (v === 'vert') return 'Green';
+  if (v === 'gris') return 'Gray';
+  return value;
+}
 
 /**
  * Parse le champ `variantLabel` du backend.
@@ -31,6 +56,23 @@ function parseVariantLabel(product: any): { label: string; values: string[] } | 
   return { label, values };
 }
 
+function splitImagesString(str: string): string[] {
+  if (!str) return [];
+  const rawParts = str.split(',').map(s => s.trim()).filter(Boolean);
+  const result: string[] = [];
+  
+  for (let i = 0; i < rawParts.length; i++) {
+    const part = rawParts[i];
+    if (part.startsWith('data:image/') && part.endsWith('base64') && i + 1 < rawParts.length) {
+      result.push(part + ',' + rawParts[i + 1]);
+      i++;
+    } else {
+      result.push(part);
+    }
+  }
+  return result;
+}
+
 export default function ProductDetailPage() {
   const { tenantId, productId } = useParams();
   const router = useRouter();
@@ -41,8 +83,11 @@ export default function ProductDetailPage() {
 
   const [activeImage, setActiveImage] = useState<string | null>(null);
   const [selectedVariant, setSelectedVariant] = useState<string>('');
+  const [quantity, setQuantity] = useState<number>(1);
 
   const { addItem } = useCartStore();
+  const t = useTranslations('Product');
+  const locale = useLocale();
   const { isAuthenticated } = useCustomerAuthStore();
 
   useEffect(() => {
@@ -74,9 +119,7 @@ export default function ProductDetailPage() {
             setProduct(currentProduct);
             
             // Initialiser l'image active
-            const images = ((currentProduct as any).photo || (currentProduct as any).imageUrl || '')
-              .split(',')
-              .map((img: string) => img.trim())
+            const images = splitImagesString((currentProduct as any).photo || (currentProduct as any).imageUrl || '')
               .filter((img: string) => img !== '');
             if (images.length > 0) {
               setActiveImage(images[0]);
@@ -126,9 +169,7 @@ export default function ProductDetailPage() {
   };
 
   // Extraire toutes les images valides
-  const imageList = ((product as any)?.photo || (product as any)?.imageUrl || '')
-    .split(',')
-    .map((img: string) => img.trim())
+  const imageList = splitImagesString((product as any)?.photo || (product as any)?.imageUrl || '')
     .filter((img: string) => img !== '');
 
   const stockQty = (product as any)?.stock ?? (product as any)?.quantity ?? (product as any)?.stockCount ?? 0;
@@ -144,7 +185,7 @@ export default function ProductDetailPage() {
           className="flex items-center gap-2 text-sm font-bold text-zinc-500 hover:text-zinc-900 mb-8 transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
-          Retour
+          {t('back')}
         </button>
 
         {loading ? (
@@ -216,16 +257,120 @@ export default function ProductDetailPage() {
                 <h1 className="text-3xl sm:text-4xl font-black text-zinc-900 leading-tight mb-4">{product.name}</h1>
                 <p className="text-zinc-500 font-medium leading-relaxed mb-6">{product.description || 'Aucune description disponible pour ce produit.'}</p>
                 
-                {/* Prix */}
-                <div className="flex flex-col gap-3 mb-6 p-4 bg-zinc-50 rounded-2xl border border-zinc-100">
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-1.5 text-xs font-black text-zinc-500 uppercase tracking-wider">
-                      <Tag className="h-3.5 w-3.5" /> Prix
-                    </span>
-                    <span className="text-3xl font-black text-zinc-900">
-                      {formatPrice(product.unitPrice || 0)} <span className="text-lg font-bold text-zinc-500">{product.currency || 'FCFA'}</span>
-                    </span>
+                {/* Affichage des tarifs dégressifs Alibaba style */}
+                <div className="mb-6 space-y-4">
+                  <h3 className="text-xs font-black text-zinc-500 uppercase tracking-widest flex items-center gap-1.5">
+                    <Tag className="h-4 w-4 text-blue-600" /> {t('priceGrid')}
+                  </h3>
+                  
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 bg-zinc-50 p-4 rounded-2xl border border-zinc-100">
+                    {/* DETAIL */}
+                    <div className="flex flex-col items-center justify-center p-3 rounded-xl border border-zinc-200 bg-white shadow-sm">
+                      <span className="text-[10px] font-black uppercase text-zinc-400">{t('detail')}</span>
+                      <span className="text-sm font-semibold text-zinc-500">{t('retailQty')}</span>
+                      <span className="text-base font-black text-zinc-900 mt-1">
+                        {formatPrice(product.unitPrice || 0)} <span className="text-[10px]">{product.currency || 'FCFA'}</span>
+                      </span>
+                    </div>
+
+                    {/* DEMI_GROS */}
+                    {(() => {
+                      const sizes = (product as any).allowedSaleSizes || [];
+                      const semiGros = sizes.find((s: any) => s.size === 'DEMIS_GROS' || s.size === 'SEMI_GROS');
+                      const sPrice = semiGros ? semiGros.unitPrice : Math.round((product.unitPrice || 0) * 0.9);
+                      const sMin = semiGros ? semiGros.minQuantity : 5;
+                      
+                      return (
+                        <div className="flex flex-col items-center justify-center p-3 rounded-xl border border-zinc-200 bg-white shadow-sm">
+                          <span className="text-[10px] font-black uppercase text-blue-600">{t('semiWholesale')}</span>
+                          <span className="text-sm font-semibold text-zinc-500">{t('minQtyFrom', {qty: sMin})}</span>
+                          <span className="text-base font-black text-blue-600 mt-1">
+                            {formatPrice(sPrice)} <span className="text-[10px]">{product.currency || 'FCFA'}</span>
+                          </span>
+                        </div>
+                      );
+                    })()}
+
+                    {/* GROS */}
+                    {(() => {
+                      const sizes = (product as any).allowedSaleSizes || [];
+                      const gros = sizes.find((s: any) => s.size === 'GROS');
+                      const gPrice = gros ? gros.unitPrice : Math.round((product.unitPrice || 0) * 0.8);
+                      const gMin = gros ? gros.minQuantity : 10;
+                      
+                      return (
+                        <div className="flex flex-col items-center justify-center p-3 rounded-xl border border-zinc-200 bg-white shadow-sm">
+                          <span className="text-[10px] font-black uppercase text-amber-600">{t('wholesale')}</span>
+                          <span className="text-sm font-semibold text-zinc-500">{t('minQtyFrom', {qty: gMin})}</span>
+                          <span className="text-base font-black text-amber-600 mt-1">
+                            {formatPrice(gPrice)} <span className="text-[10px]">{product.currency || 'FCFA'}</span>
+                          </span>
+                        </div>
+                      );
+                    })()}
+
+                    {/* SUPER_GROS */}
+                    {(() => {
+                      const sizes = (product as any).allowedSaleSizes || [];
+                      const superGros = sizes.find((s: any) => s.size === 'SUPER_GROS');
+                      const sgPrice = superGros ? superGros.unitPrice : Math.round((product.unitPrice || 0) * 0.7);
+                      const sgMin = superGros ? superGros.minQuantity : 20;
+                      
+                      return (
+                        <div className="flex flex-col items-center justify-center p-3 rounded-xl border border-zinc-200 bg-white shadow-sm">
+                          <span className="text-[10px] font-black uppercase text-purple-600">{t('superWholesale')}</span>
+                          <span className="text-sm font-semibold text-zinc-500">{t('minQtyFrom', {qty: sgMin})}</span>
+                          <span className="text-base font-black text-purple-600 mt-1">
+                            {formatPrice(sgPrice)} <span className="text-[10px]">{product.currency || 'FCFA'}</span>
+                          </span>
+                        </div>
+                      );
+                    })()}
                   </div>
+
+                  {/* Prix total calculé dynamiquement */}
+                  {(() => {
+                    const sizes = (product as any).allowedSaleSizes || [];
+                    const detailPrice = product.unitPrice || 0;
+                    
+                    const semiGros = sizes.find((s: any) => s.size === 'DEMIS_GROS' || s.size === 'SEMI_GROS');
+                    const sPrice = semiGros ? semiGros.unitPrice : Math.round(detailPrice * 0.9);
+                    const sMin = semiGros ? semiGros.minQuantity : 5;
+
+                    const gros = sizes.find((s: any) => s.size === 'GROS');
+                    const gPrice = gros ? gros.unitPrice : Math.round(detailPrice * 0.8);
+                    const gMin = gros ? gros.minQuantity : 10;
+
+                    const superGros = sizes.find((s: any) => s.size === 'SUPER_GROS');
+                    const sgPrice = superGros ? superGros.unitPrice : Math.round(detailPrice * 0.7);
+                    const sgMin = superGros ? superGros.minQuantity : 20;
+
+                    let resolvedPrice = detailPrice;
+                    let tariffLabel = t('detail');
+                    if (quantity >= sgMin) {
+                      resolvedPrice = sgPrice;
+                      tariffLabel = t('superWholesale');
+                    } else if (quantity >= gMin) {
+                      resolvedPrice = gPrice;
+                      tariffLabel = t('wholesale');
+                    } else if (quantity >= sMin) {
+                      resolvedPrice = sPrice;
+                      tariffLabel = t('semiWholesale');
+                    }
+
+                    return (
+                      <div className="bg-blue-50/55 border border-blue-100 p-4 rounded-2xl flex items-center justify-between">
+                        <div>
+                          <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">{t('appliedTariff')} : {tariffLabel}</p>
+                          <p className="text-xs font-semibold text-zinc-500">{t('unitPriceLabel')} : {formatPrice(resolvedPrice)} {product.currency || 'FCFA'}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">{t('estimatedTotal')}</p>
+                          <p className="text-2xl font-black text-zinc-900">{formatPrice(resolvedPrice * quantity)} <span className="text-sm font-bold text-zinc-500">{product.currency || 'FCFA'}</span></p>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Stock */}
@@ -237,12 +382,12 @@ export default function ProductDetailPage() {
                   }`}>
                     <PackageCheck className={`h-4 w-4 ${stockQty > 0 ? 'text-emerald-500' : 'text-red-400'}`} />
                     {stockQty > 0 
-                      ? `${stockQty} unité${stockQty > 1 ? 's' : ''} en stock`
+                      ? t('inStockWithCount', {qty: stockQty})
                       : 'Épuisé'
                     }
                   </div>
                   <ShieldCheck className="h-5 w-5 text-zinc-300" />
-                  <span className="text-xs text-zinc-400 font-medium">Stock vérifié</span>
+                  <span className="text-xs text-zinc-400 font-medium">{t('verifiedStock')}</span>
                 </div>
 
                 {/* Variantes */}
@@ -250,9 +395,9 @@ export default function ProductDetailPage() {
                   <div className="mb-6 space-y-3 border-t border-zinc-100 pt-6">
                     <div className="space-y-2">
                       <p className="text-xs font-black uppercase tracking-widest text-zinc-500">
-                        {variantInfo.label}
+                        {translateVariantLabel(variantInfo.label, locale)}
                         {selectedVariant && (
-                          <span className="ml-2 text-zinc-900 normal-case tracking-normal">— {selectedVariant}</span>
+                          <span className="ml-2 text-zinc-900 normal-case tracking-normal">— {translateVariantValue(selectedVariant, locale)}</span>
                         )}
                       </p>
                       <div className="flex flex-wrap gap-2">
@@ -266,7 +411,7 @@ export default function ProductDetailPage() {
                                 : 'bg-white text-zinc-600 border-zinc-200 hover:border-zinc-400 hover:text-zinc-900'
                             }`}
                           >
-                            {val}
+                            {translateVariantValue(val, locale)}
                           </button>
                         ))}
                       </div>
@@ -274,6 +419,29 @@ export default function ProductDetailPage() {
                   </div>
                 )}
 
+
+                {/* Sélecteur de {t('quantity')} */}
+                {stockQty > 0 && (
+                  <div className="mb-6 space-y-2 border-t border-zinc-100 pt-6">
+                    <p className="text-xs font-black uppercase tracking-widest text-zinc-500">{t('quantity')}</p>
+                    <div className="flex items-center gap-3">
+                      <button 
+                        onClick={() => setQuantity(q => Math.max(1, q - 1))}
+                        className="w-10 h-10 rounded-xl border-2 border-zinc-200 bg-white hover:border-zinc-400 font-bold flex items-center justify-center text-lg active:scale-95 transition-transform"
+                      >
+                        -
+                      </button>
+                      <span className="w-12 text-center text-base font-black text-zinc-900">{quantity}</span>
+                      <button 
+                        onClick={() => setQuantity(q => Math.min(stockQty, q + 1))}
+                        className="w-10 h-10 rounded-xl border-2 border-zinc-200 bg-white hover:border-zinc-400 font-bold flex items-center justify-center text-lg active:scale-95 transition-transform"
+                      >
+                        +
+                      </button>
+                      <span className="text-xs font-medium text-zinc-400">{t('maxQty', {qty: stockQty})}</span>
+                    </div>
+                  </div>
+                )}
 
                 <Button 
                   onClick={() => {
@@ -295,9 +463,12 @@ export default function ProductDetailPage() {
                       variantId: variantId,
                       name: product.name + variantSuffix,
                       price: product.unitPrice || 0,
+                      basePrice: product.unitPrice || 0,
                       imageUrl: activeImage || '',
                       tenantId: product.organizationId,
-                      selectedOptions: selectedVariant ? { [variantInfo?.label || 'Variante']: selectedVariant } : {}
+                      selectedOptions: selectedVariant ? { [variantInfo?.label || 'Variante']: selectedVariant } : {},
+                      allowedSaleSizes: (product as any).allowedSaleSizes || [],
+                      quantity: quantity
                     });
                   }}
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black text-lg py-6 rounded-2xl shadow-xl shadow-blue-600/20 transition-all hover:scale-[1.02] flex items-center justify-center gap-3"
@@ -305,10 +476,10 @@ export default function ProductDetailPage() {
                 >
                   <ShoppingCart className="h-6 w-6" />
                   {stockQty === 0
-                    ? 'Rupture de stock'
+                    ? t('outOfStock')
                     : !allOptionsSelected
                       ? 'Sélectionnez vos options'
-                      : 'Ajouter au panier'
+                      : t('addToCart')
                   }
                 </Button>
               </div>
@@ -328,7 +499,7 @@ export default function ProductDetailPage() {
                       <Link href={`/${sim.organizationId || 'o1'}/products/${sim.id}`} className="block relative aspect-square bg-zinc-50 p-4">
                         {(sim as any).photo ? (
                           <img 
-                            src={(sim as any).photo} 
+                            src={splitImagesString((sim as any).photo || '')[0]} 
                             alt={sim.name}
                             className="w-full h-full object-contain mix-blend-multiply group-hover:scale-110 transition-transform duration-500"
                           />

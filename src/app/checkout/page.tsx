@@ -13,10 +13,35 @@ import { TENANTS } from '@/lib/mock-data';
 import { useCustomerAuthStore } from '@/store/useCustomerAuthStore';
 import { useProductStore } from '@/store/useProductStore';
 
+import { useLocale, useTranslations } from 'next-intl';
+
+function translateVariantInName(name: string, locale: string): string {
+  if (locale !== 'en') return name;
+  const match = name.match(/\(([^)]+)\)$/);
+  if (!match) return name;
+  const rawVal = match[1];
+  const lowerVal = rawVal.toLowerCase().trim();
+  let translated = rawVal;
+  if (lowerVal === 'noir' || lowerVal === 'noir sidéral') translated = 'Space Gray';
+  else if (lowerVal === 'blanc') translated = 'White';
+  else if (lowerVal === 'rouge') translated = 'Red';
+  else if (lowerVal === 'argent') translated = 'Silver';
+  else if (lowerVal === 'or') translated = 'Gold';
+  else if (lowerVal === 'bleu') translated = 'Blue';
+  else if (lowerVal === 'vert') translated = 'Green';
+  else if (lowerVal === 'gris') translated = 'Gray';
+  else if (lowerVal === 'petit') translated = 'Small';
+  else if (lowerVal === 'moyen') translated = 'Medium';
+  else if (lowerVal === 'grand') translated = 'Large';
+  return name.slice(0, match.index) + `(${translated.toUpperCase()})`;
+}
+
 export default function CheckoutPage() {
   const router = useRouter();
-  const { items, clearCart } = useCartStore();
+  const { items, clearCheckedItems } = useCartStore();
   const { addOrder } = useOrderStore();
+  const locale = useLocale();
+  const t = useTranslations('Checkout');
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
@@ -25,7 +50,8 @@ export default function CheckoutPage() {
   const [customerName, setCustomerName] = useState('');
   const user = useCustomerAuthStore((state) => state.user);
 
-  const totalPrice = items.reduce((acc, item) => acc + item.price * item.quantity, 0);
+  const activeItems = items.filter(item => item.selectedForPurchase !== false);
+  const totalPrice = activeItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
 
   useEffect(() => {
     setIsMounted(true); // eslint-disable-line react-hooks/set-state-in-effect
@@ -35,20 +61,42 @@ export default function CheckoutPage() {
     }
   }, [user]);
 
+  const [wallet, setWallet] = useState<any>(null);
+  const [paymentMethod, setPaymentMethod] = useState<'STRIPE' | 'WALLET'>('WALLET');
+  const [isRecharging, setIsRecharging] = useState(false);
+  const [rechargeAmount, setRechargeAmount] = useState('');
+  const [walletError, setWalletError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadWallet() {
+      try {
+        const res = await fetch('/api/payments/my-wallet');
+        const data = await res.json();
+        if (data.success && data.wallet) {
+          setWallet(data.wallet);
+        }
+      } catch (err) {
+        console.error('Error loading wallet:', err);
+      }
+    }
+    if (user) {
+      loadWallet();
+    }
+  }, [user]);
+
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (items.length === 0) return;
+    if (activeItems.length === 0) return;
 
     setIsProcessing(true);
-    
-    // Simuler la connexion au microservice ePay KSM
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    
+    setWalletError(null);
+
     const displayName = customerName || 'Client Anonyme';
     const payload = {
-      items,
+      items: activeItems,
       customerName: displayName,
-      customerId: user?.partyId || user?.id || '00000000-0000-0000-0000-000000000000'
+      customerId: user?.partyId || user?.id || '00000000-0000-0000-0000-000000000000',
+      paymentMethod: paymentMethod
     };
 
     try {
@@ -60,23 +108,78 @@ export default function CheckoutPage() {
       const data = await res.json();
       
       if (data.success && data.stripeCheckoutUrl) {
-         // Rediriger vers l'URL de paiement Stripe (ou fallback local)
          if (data.stripeCheckoutUrl.startsWith('http')) {
            window.location.href = data.stripeCheckoutUrl;
          } else {
            router.push(data.stripeCheckoutUrl);
          }
-      } else if (data.success && data.data && data.data.length > 0) {
-         // Sécurité au cas où on n'a pas d'URL (ne devrait pas arriver avec le fallback)
-         const orderIds = data.data.map((o: any) => o.id).join(',');
-         router.push(`/checkout/success?orderIds=${orderIds}`);
+      } else if (data.success && data.paid) {
+         clearCheckedItems();
+         router.push('/checkout/success?paid=true');
       } else {
-         console.error(data.message);
+         setWalletError(data.message || 'Erreur lors de la validation.');
          setIsProcessing(false);
       }
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      setWalletError(err.message || 'Une erreur réseau est survenue.');
       setIsProcessing(false);
+    }
+  };
+
+  const [rechargeMethod, setRechargeMethod] = useState('ORANGE_MONEY');
+  const [rechargePhone, setRechargePhone] = useState('');
+
+  const handleRecharge = async () => {
+    if (!wallet) return;
+    const amt = parseFloat(rechargeAmount);
+    if (isNaN(amt) || amt <= 0) {
+      alert('Veuillez entrer un montant valide supérieur à 0.');
+      return;
+    }
+
+    // Déterminer les paramètres réels à envoyer au BFF
+    let provider = 'MYCOOLPAY';
+    let method = 'MOBILE_MONEY';
+
+    if (rechargeMethod === 'STRIPE') {
+      provider = 'STRIPE';
+      method = 'CARD';
+    }
+
+    // Formater le numéro de téléphone si Cameroun
+    let formattedPhone = rechargePhone;
+    if (rechargeMethod !== 'STRIPE' && rechargePhone.length === 9 && rechargePhone.startsWith('6')) {
+      formattedPhone = '237' + rechargePhone;
+    }
+
+    setIsRecharging(true);
+    try {
+      const res = await fetch('/api/payments/my-wallet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          amount: amt, 
+          provider, 
+          method, 
+          payerReference: rechargeMethod !== 'STRIPE' ? formattedPhone : '' 
+        })
+      });
+      const data = await res.json().catch(() => ({ success: false, message: 'Réponse JSON invalide du serveur' }));
+      if (data.success) {
+        if (data.redirectUrl) {
+          window.location.href = data.redirectUrl;
+        } else {
+          alert(`Demande de recharge initiée avec succès ! (Ref: ${data.orderId || 'N/A'}). Veuillez valider le paiement sur votre téléphone (saisie du code PIN).`);
+          setRechargeAmount('');
+          setRechargePhone('');
+        }
+      } else {
+        alert(data.message || `Erreur lors de l'initiation de la recharge (Code: ${res.status}).`);
+      }
+    } catch (err: any) {
+      alert(`Une erreur réseau est survenue : ${err.message || err}`);
+    } finally {
+      setIsRecharging(false);
     }
   };
 
@@ -84,27 +187,31 @@ export default function CheckoutPage() {
 
   const inputClasses = "w-full rounded-lg border-2 border-zinc-300 bg-zinc-50 p-3 text-sm font-bold text-zinc-900 focus:border-blue-600 focus:bg-white focus:outline-none transition-all placeholder:text-zinc-400";
 
-
-
   return (
     <div className="container mx-auto px-4 py-12 max-w-6xl">
       <div className="mb-12 flex items-center justify-between">
         <Button variant="outline" size="sm" onClick={() => router.back()} className="gap-2 font-bold border-2 border-zinc-900 uppercase text-xs">
-          <ArrowLeft className="h-4 w-4" /> Retour
+          <ArrowLeft className="h-4 w-4" /> {t('back')}
         </Button>
-        <h1 className="text-4xl font-black tracking-tighter text-zinc-900 uppercase italic">Caisse & Règlement</h1>
+        <h1 className="text-4xl font-black tracking-tighter text-zinc-900 uppercase italic">{t('title')}</h1>
         <div className="w-20" />
       </div>
       
+      {walletError && (
+        <div className="mb-6 p-4 bg-red-50 border-2 border-red-200 text-red-700 rounded-2xl text-sm font-bold">
+          {walletError}
+        </div>
+      )}
+
       <form onSubmit={handleCheckout} className="grid grid-cols-1 gap-12 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-10">
           <Card className="border-2 border-zinc-200 shadow-lg">
             <CardHeader className="bg-zinc-50 border-b-2 border-zinc-100">
-              <CardTitle className="text-xl uppercase italic tracking-tighter font-black text-zinc-900">Coordonnées de Livraison</CardTitle>
+              <CardTitle className="text-xl uppercase italic tracking-tighter font-black text-zinc-900">{t('deliveryDetails')}</CardTitle>
             </CardHeader>
             <CardContent className="grid grid-cols-1 gap-6 sm:grid-cols-2 p-8 bg-white">
               <div className="space-y-2">
-                <label className="text-xs font-black uppercase tracking-widest text-zinc-500">Nom Complet</label>
+                <label className="text-xs font-black uppercase tracking-widest text-zinc-500">{t('fullName')}</label>
                 <input 
                   required 
                   className={inputClasses} 
@@ -114,36 +221,133 @@ export default function CheckoutPage() {
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-xs font-black uppercase tracking-widest text-zinc-500">Téléphone (+237)</label>
-                <input required className={inputClasses} placeholder="Ex: 6xx xxx xxx" />
+                <label className="text-xs font-black uppercase tracking-widest text-zinc-500">{t('phone')}</label>
+                <input required className={inputClasses} placeholder={t('phonePlaceholder')} />
               </div>
               <div className="sm:col-span-2 space-y-2">
-                <label className="text-xs font-black uppercase tracking-widest text-zinc-500">Adresse Exacte</label>
-                <textarea required className={`${inputClasses} h-24 resize-none`} placeholder="Quartier, Rue, Point de repère..." />
+                <label className="text-xs font-black uppercase tracking-widest text-zinc-500">{t('address')}</label>
+                <textarea required className={`${inputClasses} h-24 resize-none`} placeholder={t('addressPlaceholder')} />
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-4 border-blue-600 bg-blue-50 overflow-hidden shadow-xl">
-            <CardHeader className="bg-blue-600 text-white p-6">
+          <Card className="border-2 border-zinc-200 overflow-hidden shadow-xl">
+            <CardHeader className="bg-zinc-900 text-white p-6">
               <CardTitle className="text-xl flex items-center gap-3 uppercase italic tracking-tighter font-black text-white">
                 <Wallet className="h-6 w-6 text-white" /> 
-                Paiement Sécurisé : ePay KSM
+                {t('paymentMethod')}
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-8 bg-white">
-              <div className="rounded-2xl border-2 border-blue-600 bg-blue-50/30 p-8 transition-all flex items-center justify-between shadow-inner">
+            <CardContent className="p-8 bg-white space-y-6">
+              {/* Option Portefeuille KSM */}
+              <div 
+                onClick={() => setPaymentMethod('WALLET')}
+                className={`cursor-pointer rounded-2xl border-2 p-6 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+                  paymentMethod === 'WALLET' ? 'border-blue-600 bg-blue-50/20 shadow-md' : 'border-zinc-200 hover:border-zinc-300'
+                }`}
+              >
                 <div>
-                  <p className="text-xl font-black text-zinc-900 uppercase tracking-tighter italic text-left">Portefeuille ePay</p>
-                  <p className="text-sm font-bold text-zinc-500 mt-2 text-left">Prélèvement immédiat sur votre compte central.</p>
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="radio" 
+                      name="paymentMethod" 
+                      checked={paymentMethod === 'WALLET'} 
+                      onChange={() => setPaymentMethod('WALLET')}
+                      className="h-4 w-4 text-blue-600 border-zinc-300 focus:ring-blue-500" 
+                    />
+                    <p className="text-lg font-black text-zinc-900 uppercase tracking-tighter italic">{t('walletOption')}</p>
+                  </div>
+                  <p className="text-xs font-bold text-zinc-500 mt-1 pl-6">
+                    {wallet 
+                      ? t('walletBalance', {balance: formatPrice(wallet.balance)}) 
+                      : 'Chargement de votre solde...'
+                    }
+                  </p>
                 </div>
-                <div className="h-14 w-24 bg-blue-600 rounded-xl flex items-center justify-center shadow-xl shadow-blue-200">
-                  <span className="text-white font-black text-xl italic uppercase">ePay</span>
+                <div className="h-10 px-4 bg-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-200 flex-shrink-0 self-start sm:self-center">
+                  <span className="text-white font-black text-sm italic uppercase">ePay KSM</span>
                 </div>
               </div>
-              <p className="mt-6 text-sm font-bold text-blue-800 bg-blue-100 p-4 rounded-lg border border-blue-200">
-                INFO : Pour cette phase pilote, seul le paiement via ePay est autorisé pour garantir la synchronisation instantanée des stocks.
-              </p>
+
+              {/* Option Recharge Solde si Portefeuille sélectionné et solde insuffisant */}
+              {paymentMethod === 'WALLET' && wallet && wallet.balance < totalPrice && (
+                <div className="p-6 bg-amber-50 border-2 border-amber-200 rounded-2xl space-y-4">
+                  <p className="text-xs font-bold text-amber-800">
+                    {t('insufficientBalance', {missing: formatPrice(totalPrice - wallet.balance)})}
+                  </p>
+                  
+                  {/* Moyen de Recharge */}
+                  <div className="grid grid-cols-3 gap-2">
+                    {['ORANGE_MONEY', 'MTN_MONEY', 'STRIPE'].map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => setRechargeMethod(m)}
+                        className={`py-2 px-3 text-xs font-bold rounded-lg border-2 uppercase transition-all ${
+                          rechargeMethod === m 
+                            ? 'border-amber-600 bg-amber-600 text-white' 
+                            : 'border-zinc-300 bg-white text-zinc-700 hover:border-zinc-400'
+                        }`}
+                      >
+                        {m === 'ORANGE_MONEY' ? 'Orange' : m === 'MTN_MONEY' ? 'MTN' : 'Stripe / Carte'}
+                      </button>
+                    ))}
+                  </div>
+
+                  {rechargeMethod !== 'STRIPE' && (
+                    <input 
+                      type="tel"
+                      className="w-full rounded-lg border-2 border-amber-300 bg-white p-3 text-sm font-bold text-zinc-900 focus:border-amber-500 focus:outline-none"
+                      placeholder={t('rechargePhone')}
+                      value={rechargePhone}
+                      onChange={(e) => setRechargePhone(e.target.value)}
+                    />
+                  )}
+
+                  <div className="flex gap-3">
+                    <input 
+                      type="number"
+                      className="flex-1 rounded-lg border-2 border-amber-300 bg-white p-2 text-sm font-bold text-zinc-900 focus:border-amber-500 focus:outline-none"
+                      placeholder={t('rechargeAmount')}
+                      value={rechargeAmount}
+                      onChange={(e) => setRechargeAmount(e.target.value)}
+                    />
+                    <Button 
+                      type="button"
+                      onClick={handleRecharge}
+                      disabled={isRecharging}
+                      className="bg-amber-500 hover:bg-amber-600 text-white font-black uppercase text-xs px-6 py-3 rounded-lg"
+                    >
+                      {isRecharging ? t('recharging') : t('rechargeBtn')}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Option Carte / Stripe direct */}
+              <div 
+                onClick={() => setPaymentMethod('STRIPE')}
+                className={`cursor-pointer rounded-2xl border-2 p-6 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+                  paymentMethod === 'STRIPE' ? 'border-blue-600 bg-blue-50/20 shadow-md' : 'border-zinc-200 hover:border-zinc-300'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="radio" 
+                      name="paymentMethod" 
+                      checked={paymentMethod === 'STRIPE'} 
+                      onChange={() => setPaymentMethod('STRIPE')}
+                      className="h-4 w-4 text-blue-600 border-zinc-300 focus:ring-blue-500" 
+                    />
+                    <p className="text-lg font-black text-zinc-900 uppercase tracking-tighter italic">{t('stripeOption')}</p>
+                  </div>
+                  <p className="text-xs font-bold text-zinc-500 mt-1 pl-6">{t('stripeDesc')}</p>
+                </div>
+                <div className="h-10 px-4 bg-zinc-800 rounded-lg flex items-center justify-center flex-shrink-0 self-start sm:self-center">
+                  <span className="text-white font-black text-sm italic uppercase">Stripe</span>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -151,21 +355,21 @@ export default function CheckoutPage() {
         <aside>
           <Card className="sticky top-24 border-4 border-zinc-900 shadow-2xl overflow-hidden rounded-3xl">
             <CardHeader className="bg-zinc-900 text-white">
-              <CardTitle className="text-xl uppercase italic tracking-tighter font-black text-white">Résumé Final</CardTitle>
+              <CardTitle className="text-xl uppercase italic tracking-tighter font-black text-white">{t('finalSummary')}</CardTitle>
             </CardHeader>
             <CardContent className="p-8 bg-white">
               <div className="space-y-6">
-                {items.length > 0 ? items.map((item) => (
+                {activeItems.length > 0 ? activeItems.map((item) => (
                   <div key={item.id} className="flex justify-between text-sm font-bold">
-                    <span className="text-zinc-500">{item.quantity}x <span className="text-zinc-900 uppercase italic tracking-tighter">{item.name}</span></span>
+                    <span className="text-zinc-500">{item.quantity}x <span className="text-zinc-900 uppercase italic tracking-tighter">{translateVariantInName(item.name, locale)}</span></span>
                     <span className="text-zinc-900">{formatPrice(item.price * item.quantity)}</span>
                   </div>
                 )) : (
-                  <p className="text-zinc-500 font-bold italic text-center">Votre panier est vide</p>
+                  <p className="text-zinc-500 font-bold italic text-center">{t('noActiveItems')}</p>
                 )}
                 <div className="border-t-2 border-zinc-100 pt-6">
                   <div className="flex justify-between items-end">
-                    <span className="text-xs font-black uppercase tracking-widest text-zinc-500">Total Net</span>
+                    <span className="text-xs font-black uppercase tracking-widest text-zinc-500">{t('totalNet')}</span>
                     <span className="text-4xl font-black text-blue-600 tracking-tighter italic">{formatPrice(totalPrice)}</span>
                   </div>
                 </div>
@@ -174,9 +378,9 @@ export default function CheckoutPage() {
                 type="submit" 
                 className="mt-10 w-full bg-blue-600 hover:bg-blue-700 h-20 text-xl font-black uppercase italic tracking-tighter shadow-xl shadow-blue-100 transition-all hover:scale-105" 
                 size="lg" 
-                disabled={isProcessing || items.length === 0}
+                disabled={isProcessing || activeItems.length === 0}
               >
-                {isProcessing ? 'Connexion au paiement...' : `Payer avec Yowyob`}
+                {isProcessing ? t('submitting') : t('payButton')}
               </Button>
               <div className="mt-6 flex items-center justify-center gap-2 text-zinc-400">
                 <ShieldCheck className="h-4 w-4" />
