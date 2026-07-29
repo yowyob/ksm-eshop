@@ -71,6 +71,19 @@ function resolveUnitPrice(quantity: number, basePrice: number, allowedSaleSizes?
   return basePrice;
 }
 
+async function syncCartWithServer(userId: string, items: any[]) {
+  if (typeof window === 'undefined') return;
+  try {
+    await fetch('/api/cart', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, items })
+    });
+  } catch (error) {
+    console.error('Failed to sync cart with server:', error);
+  }
+}
+
 export const useCartStore = create<CartState>()(
   persist(
     (set, get) => ({
@@ -117,6 +130,7 @@ export const useCartStore = create<CartState>()(
           // Sauvegarde automatique du panier par utilisateur
           if (state.userId && typeof window !== 'undefined') {
             localStorage.setItem(`ksm-cart-${state.userId}`, JSON.stringify(newItems));
+            syncCartWithServer(state.userId, newItems);
           }
           return { items: newItems };
         });
@@ -126,6 +140,7 @@ export const useCartStore = create<CartState>()(
           const newItems = state.items.filter((item) => item.id !== variantId);
           if (state.userId && typeof window !== 'undefined') {
             localStorage.setItem(`ksm-cart-${state.userId}`, JSON.stringify(newItems));
+            syncCartWithServer(state.userId, newItems);
           }
           return { items: newItems };
         });
@@ -148,6 +163,7 @@ export const useCartStore = create<CartState>()(
 
           if (state.userId && typeof window !== 'undefined') {
             localStorage.setItem(`ksm-cart-${state.userId}`, JSON.stringify(newItems));
+            syncCartWithServer(state.userId, newItems);
           }
           return { items: newItems };
         });
@@ -161,6 +177,7 @@ export const useCartStore = create<CartState>()(
           );
           if (state.userId && typeof window !== 'undefined') {
             localStorage.setItem(`ksm-cart-${state.userId}`, JSON.stringify(newItems));
+            syncCartWithServer(state.userId, newItems);
           }
           return { items: newItems };
         });
@@ -169,6 +186,7 @@ export const useCartStore = create<CartState>()(
         const uId = get().userId;
         if (uId && typeof window !== 'undefined') {
           localStorage.removeItem(`ksm-cart-${uId}`);
+          syncCartWithServer(uId, []);
         }
         set({ items: [] });
       },
@@ -177,20 +195,35 @@ export const useCartStore = create<CartState>()(
           const newItems = state.items.filter((item) => item.selectedForPurchase === false);
           if (state.userId && typeof window !== 'undefined') {
             localStorage.setItem(`ksm-cart-${state.userId}`, JSON.stringify(newItems));
+            syncCartWithServer(state.userId, newItems);
           }
           return { items: newItems };
         });
       },
-      setUserId: (uId) => {
+      setUserId: async (uId) => {
         if (typeof window === 'undefined') return;
 
         if (uId) {
-          // Charger le panier spécifique de l'utilisateur s'il existe
+          // 1. Tenter de charger le panier depuis l'API serveur de l'e-shop
+          try {
+            const res = await fetch(`/api/cart?userId=${uId}`);
+            const json = await res.json();
+            if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+              set({ userId: uId, items: json.data });
+              localStorage.setItem(`ksm-cart-${uId}`, JSON.stringify(json.data));
+              return;
+            }
+          } catch (e) {
+            console.warn('[CartStore] API loading failed, fallback to local:', e);
+          }
+
+          // 2. Fallback local
           const savedCart = localStorage.getItem(`ksm-cart-${uId}`);
           if (savedCart) {
             try {
               const parsed = JSON.parse(savedCart);
               set({ userId: uId, items: parsed });
+              syncCartWithServer(uId, parsed);
               return;
             } catch {}
           }
@@ -199,11 +232,11 @@ export const useCartStore = create<CartState>()(
           const currentItems = get().items;
           if (currentItems.length > 0) {
             localStorage.setItem(`ksm-cart-${uId}`, JSON.stringify(currentItems));
+            syncCartWithServer(uId, currentItems);
           }
           set({ userId: uId });
         } else {
           // Déconnexion : repasser à l'état invité en chargeant le panier invité si besoin
-          // On évite de perdre le panier de l'utilisateur déconnecté
           const guestCart = localStorage.getItem('ksm-cart-guest');
           const guestItems = guestCart ? JSON.parse(guestCart) : [];
           set({ userId: null, items: guestItems });

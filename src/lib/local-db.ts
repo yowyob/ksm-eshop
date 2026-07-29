@@ -4,6 +4,7 @@ import path from 'path';
 const DATA_DIR = path.join(process.cwd(), '.data');
 const ORDERS_FILE = path.join(DATA_DIR, 'orders.json');
 const CLIENTS_FILE = path.join(DATA_DIR, 'clients.json');
+const CARTS_FILE = path.join(DATA_DIR, 'carts.json');
 
 // Ensure directory and file exist
 const initDb = () => {
@@ -16,6 +17,9 @@ const initDb = () => {
     }
     if (!fs.existsSync(CLIENTS_FILE)) {
       fs.writeFileSync(CLIENTS_FILE, JSON.stringify([]));
+    }
+    if (!fs.existsSync(CARTS_FILE)) {
+      fs.writeFileSync(CARTS_FILE, JSON.stringify({}));
     }
   } catch (error) {
     console.error('[LOCAL-DB] Failed to initialize local DB:', error);
@@ -215,6 +219,38 @@ export const updateLocalUserAndClient = (email: string, firstName: string, lastN
     return true;
   } catch (error) {
     console.error('[LOCAL-DB] Erreur lors de la mise à jour locale du profil:', error);
+    return false;
+  }
+};
+
+export const getLocalCart = (userId: string): any[] => {
+  try {
+    initDb();
+    if (!fs.existsSync(CARTS_FILE)) {
+      return [];
+    }
+    const data = fs.readFileSync(CARTS_FILE, 'utf-8');
+    const carts = JSON.parse(data || '{}');
+    return carts[userId] || [];
+  } catch (error) {
+    console.error('[LOCAL-DB] Error reading cart:', error);
+    return [];
+  }
+};
+
+export const saveLocalCart = (userId: string, items: any[]): boolean => {
+  try {
+    initDb();
+    let carts: Record<string, any[]> = {};
+    if (fs.existsSync(CARTS_FILE)) {
+      const data = fs.readFileSync(CARTS_FILE, 'utf-8');
+      carts = JSON.parse(data || '{}');
+    }
+    carts[userId] = items;
+    fs.writeFileSync(CARTS_FILE, JSON.stringify(carts, null, 2));
+    return true;
+  } catch (error) {
+    console.error('[LOCAL-DB] Error saving cart:', error);
     return false;
   }
 };
