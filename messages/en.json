@@ -121,7 +121,8 @@
     "rechargePhone": "Mobile Money Number (e.g. 699001122)",
     "rechargeBtn": "Recharge",
     "recharging": "Redirecting...",
-    "submitting": "Connecting to payment..."
+    "submitting": "Connecting to payment...",
+    "noActiveItems": "No items selected"
   },
   "Home": {
     "loading": "Loading shop...",

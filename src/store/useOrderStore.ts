@@ -48,25 +48,74 @@ export const useOrderStore = create<OrderState>()(
             }
             
             if (Array.isArray(rawData)) {
-              const backendOrders = rawData.map((o: any) => ({
+              // Inverser pour avoir les commandes les plus récentes en premier
+              const reversedData = [...rawData].reverse();
+              
+              const backendOrders = reversedData.map((o: any) => ({
                 id: o.documentNumber || o.orderNumber || o.id,
                 // _customerName est résolu par l'API depuis les tiers du kernel
                 customerName: o._customerName || o.counterparty?.name || o.counterparty?.displayName || o.customerName || o.customerThirdPartyId || 'Client',
                 customerId: o.counterparty?.id || o.customerThirdPartyId || o.counterpartyThirdPartyId || o.customerId,
                 total: o.totalAmount || o.subtotalAmount || o.total || 0,
                 status: o.status?.toLowerCase() || 'pending',
-                date: o.createdAt ? new Date(o.createdAt).toLocaleDateString('fr-FR', {
-                  year: 'numeric',
-                  month: 'short',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                }) : (o.date || new Date().toLocaleDateString('fr-FR')),
+                date: (() => {
+                  if (o.createdAt) {
+                    return new Date(o.createdAt).toLocaleDateString('fr-FR', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    });
+                  }
+                  
+                  // Décoder le numéro de document KSM-YYYYMMDD-HHMM-XXXX
+                  const identifier = o.orderNumber || o.id || '';
+                  const match = identifier.match(/KSM-(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})-\d+/);
+                  if (match) {
+                    const [_, year, month, day, hour, minute] = match;
+                    const parsedDate = new Date(
+                      parseInt(year),
+                      parseInt(month) - 1,
+                      parseInt(day),
+                      parseInt(hour),
+                      parseInt(minute)
+                    );
+                    return parsedDate.toLocaleDateString('fr-FR', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    });
+                  }
+                  
+                  return o.date || 'Date non spécifiée';
+                })(),
                 tenantId: o._orgId || o.organizationId || o.tenantId || 't1', 
                 items: o.lines || o.items || [],
               }));
               
-              set({ orders: backendOrders, isLoading: false });
+              const sortedOrders = [...backendOrders].sort((a: any, b: any) => {
+                const getOrderTimestamp = (order: any): number => {
+                  const identifier = order.id || '';
+                  const match = identifier.match(/KSM-(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})-\d+/);
+                  if (match) {
+                    const [_, year, month, day, hour, minute] = match;
+                    return new Date(
+                      parseInt(year),
+                      parseInt(month) - 1,
+                      parseInt(day),
+                      parseInt(hour),
+                      parseInt(minute)
+                    ).getTime();
+                  }
+                  return 0; // Sans date = en bas
+                };
+                return getOrderTimestamp(b) - getOrderTimestamp(a);
+              });
+
+              set({ orders: sortedOrders, isLoading: false });
             } else {
               set({ error: 'Format de données invalide', isLoading: false });
             }

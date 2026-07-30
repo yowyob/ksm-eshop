@@ -122,12 +122,27 @@ export default function SuperAdminPage() {
       (o._customerName || '').toLowerCase().includes(q)
     );
   }).sort((a, b) => {
-    // Extraire le numéro de commande numérique (ex: KSM-878462 -> 878462)
-    const getOrderNum = (order: any): number => {
-      const match = (order.orderNumber || order.documentNumber || '').match(/\d+/);
-      return match ? parseInt(match[0], 10) : 0;
+    const getOrderTimestamp = (order: any): number => {
+      const rawDate = order.createdAt || order.orderDate || order.date || order.createdDate || order.createdTime || null;
+      if (rawDate) {
+        return new Date(rawDate).getTime();
+      }
+      // Décoder le numéro de document KSM-YYYYMMDD-HHMM-XXXX
+      const identifier = order.orderNumber || order.documentNumber || order.id || '';
+      const match = identifier.match(/KSM-(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})-\d+/);
+      if (match) {
+        const [_, year, month, day, hour, minute] = match;
+        return new Date(
+          parseInt(year),
+          parseInt(month) - 1,
+          parseInt(day),
+          parseInt(hour),
+          parseInt(minute)
+        ).getTime();
+      }
+      return 0; // Sans date = en bas
     };
-    return getOrderNum(b) - getOrderNum(a);
+    return getOrderTimestamp(b) - getOrderTimestamp(a);
   });
 
   if (loading) {
@@ -291,9 +306,26 @@ export default function SuperAdminPage() {
                       const commission = amount * 0.05;
                       // Afficher uniquement la vraie date du Kernel, ou laisser vide si non disponible
                       const rawDate = order.createdAt || order.orderDate || order.date || order.createdDate || order.createdTime || null;
-                      const date = rawDate
-                        ? new Date(rawDate).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
-                        : '';
+                      let date = '';
+                      if (rawDate) {
+                        date = new Date(rawDate).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+                      } else {
+                        const identifier = order.orderNumber || order.documentNumber || order.id || '';
+                        const match = identifier.match(/KSM-(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})-\d+/);
+                        if (match) {
+                          const [_, year, month, day, hour, minute] = match;
+                          const parsedDate = new Date(
+                            parseInt(year),
+                            parseInt(month) - 1,
+                            parseInt(day),
+                            parseInt(hour),
+                            parseInt(minute)
+                          );
+                          date = parsedDate.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+                        } else {
+                          date = 'Date non spécifiée';
+                        }
+                      }
 
                       const customerName = order._customerName || '—';
 

@@ -125,8 +125,14 @@ export async function POST(request: NextRequest) {
       }
 
       // 3. Créer la commande
-      const randomId = Math.floor(100000 + Math.random() * 900000);
-      const orderId = `KSM-${randomId}`;
+      const now = new Date();
+      const yyyy = now.getFullYear();
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const dd = String(now.getDate()).padStart(2, '0');
+      const hh = String(now.getHours()).padStart(2, '0');
+      const min = String(now.getMinutes()).padStart(2, '0');
+      const randomId = Math.floor(10000 + Math.random() * 90000);
+      const orderId = `KSM-${yyyy}${mm}${dd}-${hh}${min}-${randomId}`;
       const total = itemsList.reduce((acc, it) => acc + (it.price * it.quantity), 0);
 
       const adminTokenForOrder = await getKernelToken();
