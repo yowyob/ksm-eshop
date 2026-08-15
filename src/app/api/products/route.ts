@@ -152,7 +152,7 @@ export async function GET(request: NextRequest) {
     // Fetch products for each organization
     const productPromises = orgs.map(async (org) => {
       try {
-        const prodRes = await backendFetch('/api/product-core/catalog', {
+        const prodRes = await backendFetch('/api/products', {
           method: 'GET',
           params: { organizationId: org.id, familyCode, status },
           headers: {
@@ -211,7 +211,7 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const result = await backendFetch('/api/product-core/catalog', {
+  const result = await backendFetch('/api/products', {
     method: 'GET',
     params: {
       organizationId,
@@ -288,8 +288,6 @@ export async function POST(request: NextRequest) {
       body.organizationId = process.env.DEFAULT_ORGANIZATION_ID || 'o1';
     }
 
-    // Écriture (création) : reste sur le modèle B (product.*) — A n'expose que la lecture
-    // catalogue. La projection B->A côté kernel peuple product_core en fire-and-forget.
     const result = await backendFetch('/api/products', {
       method: 'POST',
       body: JSON.stringify(body),

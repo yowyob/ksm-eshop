@@ -26,7 +26,7 @@ export async function GET(
   const page = searchParams.get('page') || undefined;
   const size = searchParams.get('size') || undefined;
 
-  const result = await backendFetch('/api/product-core/catalog', {
+  const result = await backendFetch('/api/products', {
     method: 'GET',
     params: { organizationId: orgId, status, familyCode, page, size },
     headers: { 'X-Organization-Id': orgId }
