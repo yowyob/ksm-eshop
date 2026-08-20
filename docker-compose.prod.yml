@@ -15,6 +15,14 @@ services:
       KERNEL_PASSWORD: "${KERNEL_PASSWORD:?KERNEL_PASSWORD requis (secret CI)}"
       DEFAULT_ORGANIZATION_ID: "fac51104-41e7-4760-bdf4-4abd8f0ea059"
       DEFAULT_AGENCY_ID: "wh1_2"
+    # Plafond memoire. Sans limite, un conteneur peut prendre TOUTE la memoire de la machine :
+    # le noyau tue alors un processus au hasard parmi les plus gros, et ce n'est pas forcement le
+    # fautif — une fuite ici peut faire tomber la base de donnees. Le plafond transforme une panne
+    # generale en panne locale : seul ce conteneur est arrete, et il redemarre.
+    #
+    # 512 Mo pour ~75 Mo reellement consommes : sept fois la marge. Assez large pour ne jamais
+    # gener un pic normal, assez bas pour qu'une fuite s'arrete ici.
+    mem_limit: 512m
     healthcheck:
       test: ["CMD-SHELL","wget -qO- http://127.0.0.1:3000/ >/dev/null 2>&1 || exit 1"]
       interval: 20s
