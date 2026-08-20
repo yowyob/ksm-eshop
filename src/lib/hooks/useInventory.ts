@@ -10,7 +10,9 @@ export function useStockMovements(organizationId = 'o1', agencyId?: string, prod
   if (productId) queryParams.append('productId', productId);
 
   const { data, error, isLoading, mutate } = useSWR(
-    `/api/inventory/movements?${queryParams.toString()}`,
+    // Le grand-livre se lit produit par produit dans un depot : sans ces deux reperes il n'y a
+    // rien a demander, et SWR ne doit pas partir en requete pour recevoir une liste vide.
+    agencyId && productId ? `/api/stock/movements?${queryParams.toString()}` : null,
     fetcher
   );
 
@@ -32,14 +34,20 @@ export function useStockBalance(productId: string, agencyId?: string, organizati
   queryParams.append('productId', productId);
 
   const { data, error, isLoading, mutate } = useSWR(
-    productId ? `/api/inventory/movements/balance?${queryParams.toString()}` : null,
+    productId ? `/api/stock/balances?${queryParams.toString()}` : null,
     fetcher
   );
 
+  // Le grand-livre distingue ce qui est detenu de ce qui est vendable : une piece reservee est en
+  // stock sans etre disponible. Afficher le seul stock detenu laisse vendre deux fois la derniere.
   const balance = data?.success ? data.data?.onHandQuantity || 0 : 0;
+  const availableBalance = data?.success
+    ? data.data?.availableQuantity ?? data.data?.onHandQuantity ?? 0
+    : 0;
 
   return {
     balance,
+    availableBalance,
     isLoading,
     isError: error || (data && !data.success),
     errorMessage: data && !data.success ? data.message : undefined,
@@ -49,7 +57,7 @@ export function useStockBalance(productId: string, agencyId?: string, organizati
 
 export function useTransfers(organizationId = 'o1') {
   const { data, error, isLoading, mutate } = useSWR(
-    `/api/inventory/transfers?organizationId=${organizationId}`,
+    `/api/stock/transfers?organizationId=${organizationId}`,
     fetcher
   );
 
@@ -66,7 +74,7 @@ export function useTransfers(organizationId = 'o1') {
 
 export function useTransformations(organizationId = 'o1') {
   const { data, error, isLoading, mutate } = useSWR(
-    `/api/inventory/transformations?organizationId=${organizationId}`,
+    `/api/stock/transformations?organizationId=${organizationId}`,
     fetcher
   );
 
