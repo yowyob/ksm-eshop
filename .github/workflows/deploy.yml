@@ -1,51 +1,57 @@
+# Déploiement : la forge construit, l'agent déploie.
+#
+# La forge n'ouvre plus de session SSH vers le serveur. Elle publie l'image, puis DEMANDE à
+# l'agent — qui vit déjà sur la machine — de la mettre en service.
+#
+# Trois raisons, toutes constatées en production :
+#
+#   1. UN SEUL DÉPLOYEUR. Quand la forge et l'agent déployaient tous deux, l'agent repassait
+#      derrière et écrasait ce que la forge venait d'écrire — les deux jobs restant verts. Une
+#      panne invisible est bien pire qu'une panne franche.
+#   2. PAS DE SSH. C'est le maillon le plus fragile : refus et délais dépassés à répétition,
+#      alors même que les services répondaient normalement.
+#   3. UN SEUL ENDROIT POUR LES SECRETS. Le mot de passe applicatif vivait à trois endroits et
+#      deux étaient périmés — c'est ce qui a mis la boutique hors ligne. Il n'appartient plus
+#      qu'à l'agent.
+#
+# L'ordre est garanti par `workflow_run` : on ne déclenche qu'après une publication RÉUSSIE,
+# donc l'image existe forcément quand l'agent va la chercher.
 name: Deploy (server)
+
 on:
   workflow_run:
     workflows: ["Publish Docker image (GHCR)"]
     types: [completed]
-    branches: [main]
   workflow_dispatch:
-concurrency:
-  group: deploy-ksm-eshop
-  cancel-in-progress: false
+
 jobs:
   deploy:
-    if: ${{ github.repository == 'yowyob/ksm-eshop' && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    if: ${{ github.repository == 'yowyob/ksm-eshop' && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success') }}
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
-      - id: img
-        run: |
-          SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
-          REPO="${GITHUB_REPOSITORY,,}"
-          echo "image=ghcr.io/${REPO}:sha-${SHA:0:7}" >> "$GITHUB_OUTPUT"
-      - name: Clé SSH
-        run: |
-          mkdir -p ~/.ssh && chmod 700 ~/.ssh
-          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_deploy
-          chmod 600 ~/.ssh/id_deploy
-          ssh-keyscan -H "${{ vars.DEPLOY_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
-      - name: Copier compose
-        run: |
-          ssh -i ~/.ssh/id_deploy "${{ vars.DEPLOY_USER }}@${{ vars.DEPLOY_HOST }}" "mkdir -p '${{ vars.DEPLOY_DIR }}'"
-          scp -i ~/.ssh/id_deploy docker-compose.prod.yml "${{ vars.DEPLOY_USER }}@${{ vars.DEPLOY_HOST }}:${{ vars.DEPLOY_DIR }}/docker-compose.prod.yml"
-      - name: Pull + up
+      - name: Demander le déploiement à l'agent
         env:
-          APP_IMAGE: ${{ steps.img.outputs.image }}
-          KERNEL_X_API_KEY: ${{ secrets.KERNEL_X_API_KEY }}
-          KERNEL_PASSWORD: ${{ secrets.KERNEL_PASSWORD }}
+          AGENT_TOKEN: ${{ secrets.AGENT_TOKEN }}
         run: |
-          ssh -i ~/.ssh/id_deploy "${{ vars.DEPLOY_USER }}@${{ vars.DEPLOY_HOST }}" "
-            set -e
-            cd '${{ vars.DEPLOY_DIR }}'
-            export APP_IMAGE='${APP_IMAGE}'
-            export KERNEL_X_API_KEY='${KERNEL_X_API_KEY}'
-            export KERNEL_PASSWORD='${KERNEL_PASSWORD}'
-            docker pull \"\$APP_IMAGE\"
-            docker compose -f docker-compose.prod.yml up -d
-            docker compose -f docker-compose.prod.yml ps
-            docker image prune -f
-          "
+          set -euo pipefail
+          reponse=$(curl -sS --fail-with-body --max-time 60 \
+            -X POST \
+            -H "Authorization: Bearer ${AGENT_TOKEN}" \
+            "https://kernel-core.yowyob.com/_agent/deploy/shop")
+          echo "$reponse"
+          echo "$reponse" | grep -q '"accepted": *true'
+
+      - name: Vérifier que la boutique répond
+        run: |
+          set -euo pipefail
+          # L'agent déploie de façon asynchrone : on laisse le temps au conteneur de démarrer,
+          # puis on vérifie nous-mêmes. L'agent a sa propre sonde et son propre repli ; ce
+          # contrôle-ci sert à ce que l'échec soit VISIBLE ici, et pas seulement dans ses journaux.
+          for tentative in $(seq 1 20); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 https://shop.yowyob.com/ || echo 000)
+            if [ "$code" = "200" ]; then echo "Boutique en ligne (HTTP 200)."; exit 0; fi
+            echo "tentative ${tentative} : HTTP ${code}"
+            sleep 15
+          done
+          echo "La boutique ne répond pas 200 après le déploiement." >&2
+          exit 1
