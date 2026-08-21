@@ -268,32 +268,23 @@ export async function POST(request: NextRequest) {
     // Si paiement par portefeuille KSM
     if (body.paymentMethod === 'WALLET') {
       try {
-        const { getWalletByOwner, createWallet, canOperate, payWithWallet } = await import('@/lib/payments-api');
+        const { getMyWallet, ensureMyWallet, getWalletByOwner, ensureOrganizationWallet, payFromWallet } = await import('@/lib/yowyob-sdk/payment');
         
         // 1. Récupérer ou créer le portefeuille de l'acheteur
-        const buyerId = customerId || 'guest-buyer';
-        let buyerWallet = await getWalletByOwner(buyerId);
-        if (!buyerWallet) {
-          buyerWallet = await createWallet(buyerId);
-        }
-
-        // Lire la surcharge locale du solde si présente
         const cookieStore = await cookies();
-        const override = cookieStore.get('wallet_override')?.value;
-        if (override && buyerWallet) {
-          try {
-            const parsed = JSON.parse(override);
-            if (parsed.walletId === buyerWallet.id) {
-              buyerWallet.balance = parsed.balance;
-            }
-          } catch {}
+        const customerToken = cookieStore.get('customerToken')?.value;
+        if (!customerToken) {
+          return Response.json({ success: false, errorCode: 'SESSION_REQUIRED', message: 'Connectez-vous avant de payer.' }, { status: 401 });
         }
+        let buyerWallet;
+        try { buyerWallet = await getMyWallet(customerToken); }
+        catch { buyerWallet = await ensureMyWallet(customerToken, customerId || undefined); }
 
         // 2. Récupérer ou créer le portefeuille de la boutique (tenant)
-        let merchantWallet = await getWalletByOwner(mainTenantId);
-        if (!merchantWallet) {
-          merchantWallet = await createWallet(mainTenantId);
-        }
+        const serviceToken = await getKernelToken();
+        let merchantWallet;
+        try { merchantWallet = await getWalletByOwner(serviceToken, mainTenantId, mainTenantId); }
+        catch { merchantWallet = await ensureOrganizationWallet(serviceToken, mainTenantId); }
 
         // 3. Vérifier le solde
         const hasEnough = buyerWallet.balance >= grandTotal;
@@ -309,14 +300,12 @@ export async function POST(request: NextRequest) {
         }
 
         // 4. Procéder au virement
-        await payWithWallet(buyerWallet.id, merchantWallet.id, grandTotal, `Paiement des commandes KSM: ${orderIds}`, { orderIds });
-
-        // Mettre à jour le solde restant simulé dans le cookie
-        const newBalance = buyerWallet.balance - grandTotal;
-        cookieStore.set('wallet_override', JSON.stringify({
-          walletId: buyerWallet.id,
-          balance: newBalance
-        }), { maxAge: 60 * 60 * 24 });
+        await payFromWallet(customerToken, buyerWallet.id, {
+          recipientWalletId: merchantWallet.id,
+          amount: grandTotal,
+          description: `Paiement des commandes KSM: ${orderIds}`,
+          metadata: { orderIds },
+        });
 
         // 5. Marquer la commande locale comme payée
         ordersCreated.forEach((o: any) => {

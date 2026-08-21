@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { getKernelBaseHeaders, getKernelBase } from '@/lib/kernel-auth';
+import { loginWithYowyob } from '@/lib/yowyob-sdk/auth';
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,26 +10,16 @@ export async function POST(request: NextRequest) {
     // Toujours utiliser le tenant global pour l'auth (évite les locks anti-brute-force par org)
     const orgId = process.env.KERNEL_X_TENANT_ID || '11111111-1111-1111-1111-111111111111';
 
-    const authRes = await fetch(`${getKernelBase()}/api/auth/login`, {
-      method: 'POST',
-      headers: {
-        ...getKernelBaseHeaders(),
-        'X-Tenant-Id': orgId,
-        'X-Organization-Id': orgId,
-      },
-      body: JSON.stringify({ principal: email, password: code }),
-      cache: 'no-store',
-    });
-
-    const authData = await authRes.json().catch(() => ({}));
-
-    if (!authRes.ok) {
-      console.log('[CustomerLogin] Failed:', authRes.status, authData);
+    let session;
+    try {
+      session = await loginWithYowyob({ principal: email, password: code, tenantId: orgId });
+    } catch (error: any) {
+      const errorCode = error?.code || '401';
+      console.log('[CustomerLogin] Failed:', errorCode, error?.message);
 
       let errorMsg = 'Email ou mot de passe incorrect';
-      const errorCode = authData?.errorCode || String(authRes.status);
 
-      if (authData?.message) errorMsg = authData.message;
+      if (error?.message) errorMsg = error.message;
       if (errorCode === 'EMAIL_NOT_VERIFIED') {
         errorMsg = "Votre adresse email n'est pas encore vérifiée. Consultez votre boîte de réception.";
       }
@@ -41,19 +31,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Récupérer le token — la réponse Kernel peut avoir plusieurs structures
-    const data = authData?.data || authData;
-    const accessToken =
-      data?.accessToken ||
-      data?.sessionToken ||
-      authData?.accessToken ||
-      authData?.token;
+    const data: any = session.user || {};
+    const accessToken = session.accessToken;
 
     if (!accessToken) {
-      console.error('[CustomerLogin] Aucun token reçu:', JSON.stringify(authData).slice(0, 300));
+      console.error('[CustomerLogin] Aucun token reçu');
       return NextResponse.json({ success: false, message: 'Erreur inattendue: token manquant.' }, { status: 500 });
     }
 
-    const expiresIn = data?.expiresInSeconds || data?.expiresIn || 3600;
+    const expiresIn = session.expiresIn || 3600;
     const userData = data?.user || data;
 
     // Profil client normalisé
