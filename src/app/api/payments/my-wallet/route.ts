@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { cookies } from 'next/headers';
-import { getMyWallet, ensureMyWallet, createRecharge } from '@/lib/yowyob-sdk/payment';
+import { getWalletByOwner, createWallet, rechargeWallet } from '@/lib/payments-api';
 
 /**
  * Récupère l'ID du client actuellement connecté via les cookies de session.
@@ -21,26 +21,23 @@ function getCustomerId(cookieStore: any): string | null {
   }
 }
 
-function getCustomerToken(cookieStore: any): string | null {
-  return cookieStore.get('customerToken')?.value || null;
-}
-
 /**
  * GET /api/payments/my-wallet
  * Récupère le portefeuille du client connecté
  */
 export async function GET(request: NextRequest) {
   const cookieStore = await cookies();
-  const token = getCustomerToken(cookieStore);
   const customerId = getCustomerId(cookieStore);
 
-  if (!customerId || !token) {
+  if (!customerId) {
     return Response.json({ success: false, message: 'Non connecté' }, { status: 401 });
   }
 
   try {
-    let wallet;
-    try { wallet = await getMyWallet(token); } catch { wallet = await ensureMyWallet(token, customerId); }
+    let wallet = await getWalletByOwner(customerId);
+    if (!wallet) {
+      wallet = await createWallet(customerId);
+    }
 
     return Response.json({ success: true, wallet });
   } catch (error: any) {
@@ -54,10 +51,9 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   const cookieStore = await cookies();
-  const token = getCustomerToken(cookieStore);
   const customerId = getCustomerId(cookieStore);
 
-  if (!customerId || !token) {
+  if (!customerId) {
     return Response.json({ success: false, message: 'Non connecté' }, { status: 401 });
   }
 
@@ -67,7 +63,7 @@ export async function POST(request: NextRequest) {
       return Response.json({ success: false, message: 'Montant invalide' }, { status: 400 });
     }
 
-    const wallet = await getMyWallet(token);
+    const wallet = await getWalletByOwner(customerId);
     if (!wallet) {
       return Response.json({ success: false, message: "Vous ne possédez pas encore de portefeuille actif sur le Kernel Core." }, { status: 400 });
     }
@@ -78,14 +74,17 @@ export async function POST(request: NextRequest) {
     const callbackUrl = `${protocol}://${host}/account/wallet?recharge=success`;
 
     const resolvedCurrency = (wallet.currency === 'FCFA' || !wallet.currency) ? 'XAF' : wallet.currency;
-    const rechargeResult: any = await createRecharge(token, wallet.id, {
+    const rechargeResult = await rechargeWallet(
+      wallet.id,
       amount,
-      provider: provider || 'MYCOOLPAY',
-      method: method || 'MOBILE_MONEY',
-      payerReference: payerReference || '',
-      currency: resolvedCurrency,
-      idempotencyKey: `shop-recharge-${wallet.id}-${Date.now()}`,
-    });
+      {
+        provider: provider || 'MYCOOLPAY',
+        method: method || 'MOBILE_MONEY',
+        payerReference: payerReference || '',
+        currency: resolvedCurrency
+      },
+      callbackUrl
+    );
 
     if (!rechargeResult.redirectUrl) {
       return Response.json({
@@ -97,8 +96,8 @@ export async function POST(request: NextRequest) {
 
     return Response.json({ 
       success: true, 
-      redirectUrl: (rechargeResult as any).redirectUrl || (rechargeResult as any).paymentUrl,
-      orderId: (rechargeResult as any).orderId || (rechargeResult as any).id,
+      redirectUrl: rechargeResult.redirectUrl, 
+      orderId: rechargeResult.orderId 
     });
   } catch (error: any) {
     console.error('[WALLET RECHARGE ERROR]', error);
