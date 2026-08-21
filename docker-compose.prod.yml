@@ -11,7 +11,12 @@ services:
       KERNEL_X_CLIENT_ID: "prod-platform-backend"
       KERNEL_X_API_KEY: "${KERNEL_X_API_KEY:?KERNEL_X_API_KEY requis (secret CI)}"
       KERNEL_X_TENANT_ID: "11111111-1111-1111-1111-111111111111"
-      KERNEL_USERNAME: "atenaornella@gmail.com"
+      # Compte de SERVICE, et non celui d'une personne. La boutique tournait sous le compte
+      # personnel d'une employée : son mot de passe vivait ici, et le jour où le second facteur
+      # s'est appliqué à elle, la vitrine est tombée — un programme n'a personne pour lire le code
+      # reçu par courriel. Ce compte n'a pas de MFA, ce qui n'est tenable que parce qu'il ne porte
+      # aucune permission privilégiée : lecture de la vitrine, plus l'enregistrement des commandes.
+      KERNEL_USERNAME: "shop-service@yowyob.com"
       KERNEL_PASSWORD: "${KERNEL_PASSWORD:?KERNEL_PASSWORD requis (secret CI)}"
       DEFAULT_ORGANIZATION_ID: "fac51104-41e7-4760-bdf4-4abd8f0ea059"
       DEFAULT_AGENCY_ID: "wh1_2"
