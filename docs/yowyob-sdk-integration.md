@@ -35,7 +35,11 @@ Pour un wallet personnel :
 5. Le checkout appelle Payment Core avec le JWT de l’acheteur. Le wallet marchand est
    résolu côté serveur avec le compte de service Shop.
 
-Le paiement final doit utiliser le challenge MFA Payment Core en production :
+Le paiement final utilise le challenge MFA Payment Core : Shop demande d’abord le challenge
+via `POST /api/payments/my-wallet/pay/challenge`, affiche un champ de code à l’utilisateur,
+puis transmet le code uniquement au BFF pour la confirmation.
+
+Les endpoints Kernel utilisés sont :
 
 ```text
 POST /api/payments/wallets/{walletId}/pay/challenge
@@ -43,7 +47,7 @@ POST /api/payments/wallets/{walletId}/pay
   { recipientWalletId, amount, challengeToken, code, reference }
 ```
 
-Le code MFA doit être saisi dans une interface contrôlée par Shop/YowAuth ; il ne doit
+Le code MFA est saisi dans l’interface Shop et envoyé uniquement au BFF ; il ne doit
 jamais être journalisé ni envoyé à un service tiers. L’implémentation actuelle a déjà
 supprimé la surcharge locale `wallet_override` et s’appuie sur le solde autoritatif du Kernel.
 
@@ -79,4 +83,3 @@ bundle navigateur.
 Shop est un BFF d’orchestration : il collecte le panier, demande les devis/ordres et
 présente les résultats. Le Kernel reste l’autorité pour l’identité, les permissions,
 le solde, l’idempotence, la MFA, la confirmation provider et le ledger financier.
-

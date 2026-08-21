@@ -50,6 +50,15 @@ export function payFromWallet(token: string, walletId: string, input: {
   return call(token, `/api/payments/wallets/${encodeURIComponent(walletId)}/pay`, 'POST', input);
 }
 
+export function createPayChallenge(token: string, walletId: string, input: { amount: number; reference?: string }) {
+  return call<{ challengeToken: string; expiresInSeconds: number; codePreview?: string | null }>(
+    token,
+    `/api/payments/wallets/${encodeURIComponent(walletId)}/pay/challenge`,
+    'POST',
+    input,
+  );
+}
+
 export function createRecharge(token: string, walletId: string, input: {
   amount: number;
   currency?: string;
@@ -60,4 +69,3 @@ export function createRecharge(token: string, walletId: string, input: {
 }) {
   return call(token, `/api/payments/wallets/${encodeURIComponent(walletId)}/recharge`, 'POST', input);
 }
-

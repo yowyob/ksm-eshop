@@ -66,6 +66,9 @@ export default function CheckoutPage() {
   const [isRecharging, setIsRecharging] = useState(false);
   const [rechargeAmount, setRechargeAmount] = useState('');
   const [walletError, setWalletError] = useState<string | null>(null);
+  const [paymentChallengeToken, setPaymentChallengeToken] = useState<string | null>(null);
+  const [paymentMfaCode, setPaymentMfaCode] = useState('');
+  const [showPaymentMfa, setShowPaymentMfa] = useState(false);
 
   useEffect(() => {
     async function loadWallet() {
@@ -91,12 +94,40 @@ export default function CheckoutPage() {
     setIsProcessing(true);
     setWalletError(null);
 
+    // Le Payment Core exige une confirmation MFA avant tout débit de wallet.
+    // On demande le challenge une seule fois, puis on réutilise son token à la confirmation.
+    if (paymentMethod === 'WALLET' && !paymentChallengeToken) {
+      try {
+        const challengeRes = await fetch('/api/payments/my-wallet/pay/challenge', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ amount: totalPrice, reference: `SHOP-${Date.now()}` }),
+        });
+        const challengeData = await challengeRes.json();
+        if (!challengeRes.ok || !challengeData.success) {
+          throw new Error(challengeData.message || 'Impossible de démarrer la vérification MFA.');
+        }
+        const challenge = challengeData.challenge || challengeData.data;
+        if (!challenge?.challengeToken) throw new Error('Challenge MFA invalide retourné par le Payment Core.');
+        setPaymentChallengeToken(challenge.challengeToken);
+        setShowPaymentMfa(true);
+        setIsProcessing(false);
+        return;
+      } catch (error: any) {
+        setWalletError(error.message || 'Impossible de démarrer la vérification MFA.');
+        setIsProcessing(false);
+        return;
+      }
+    }
+
     const displayName = customerName || 'Client Anonyme';
     const payload = {
       items: activeItems,
       customerName: displayName,
       customerId: user?.partyId || user?.id || '00000000-0000-0000-0000-000000000000',
-      paymentMethod: paymentMethod
+      paymentMethod: paymentMethod,
+      paymentChallengeToken: paymentChallengeToken || undefined,
+      paymentMfaCode: paymentMfaCode || undefined,
     };
 
     try {
@@ -114,10 +145,16 @@ export default function CheckoutPage() {
            router.push(data.stripeCheckoutUrl);
          }
       } else if (data.success && data.paid) {
+         setPaymentChallengeToken(null);
+         setPaymentMfaCode('');
+         setShowPaymentMfa(false);
          clearCheckedItems();
          router.push('/checkout/success?paid=true');
       } else {
          setWalletError(data.message || 'Erreur lors de la validation.');
+         if (data.errorCode === 'MFA_REQUIRED' || data.errorCode === 'MFA_INVALID' || data.errorCode === 'PAYMENT_MFA_REQUIRED') {
+           setShowPaymentMfa(true);
+         }
          setIsProcessing(false);
       }
     } catch (err: any) {
@@ -200,6 +237,35 @@ export default function CheckoutPage() {
       {walletError && (
         <div className="mb-6 p-4 bg-red-50 border-2 border-red-200 text-red-700 rounded-2xl text-sm font-bold">
           {walletError}
+        </div>
+      )}
+
+      {showPaymentMfa && paymentMethod === 'WALLET' && (
+        <div className="mb-6 rounded-2xl border-2 border-blue-200 bg-blue-50 p-6 shadow-sm" role="dialog" aria-label="Confirmation MFA du paiement">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-black uppercase tracking-tight text-blue-950">Confirmer le paiement</h2>
+              <p className="mt-1 text-sm font-medium text-blue-800">Saisissez le code MFA reçu pour autoriser le débit de votre wallet.</p>
+            </div>
+            <ShieldCheck className="h-6 w-6 shrink-0 text-blue-700" />
+          </div>
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+            <input
+              autoFocus
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              value={paymentMfaCode}
+              onChange={(event) => setPaymentMfaCode(event.target.value.replace(/[^0-9A-Za-z-]/g, ''))}
+              placeholder="Code MFA"
+              className="flex-1 rounded-lg border-2 border-blue-300 bg-white p-3 font-bold text-zinc-900 focus:border-blue-600 focus:outline-none"
+            />
+            <Button type="submit" disabled={isProcessing || paymentMfaCode.length < 4} className="bg-blue-700 font-black uppercase text-white hover:bg-blue-800">
+              {isProcessing ? 'Validation…' : 'Confirmer'}
+            </Button>
+            <Button type="button" variant="outline" onClick={() => { setShowPaymentMfa(false); setPaymentChallengeToken(null); setPaymentMfaCode(''); }} className="font-bold">
+              Annuler
+            </Button>
+          </div>
         </div>
       )}
 

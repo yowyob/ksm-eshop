@@ -7,7 +7,7 @@ import { getKernelToken } from '@/lib/kernel-auth';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { items, customerName, customerId } = body;
+    const { items, customerName, customerId, paymentChallengeToken, paymentMfaCode } = body;
 
     const cookieStore = await cookies();
     const customerToken = cookieStore.get('customerToken')?.value;
@@ -305,6 +305,8 @@ export async function POST(request: NextRequest) {
           amount: grandTotal,
           description: `Paiement des commandes KSM: ${orderIds}`,
           metadata: { orderIds },
+          challengeToken: paymentChallengeToken,
+          code: paymentMfaCode,
         });
 
         // 5. Marquer la commande locale comme payée
