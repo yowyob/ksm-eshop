@@ -18,6 +18,10 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/.next ./.next
 COPY --from=build /app/public ./public
 COPY --from=build /app/next.config.* ./
+# Données locales de la boutique (commandes de secours, clients, paniers) : le dossier n'existait
+# pas et /app appartient à root, donc chaque écriture échouait (EACCES) sans que rien ne s'arrête.
+# Il est créé ici pour nextjs ; le compose y monte un volume pour qu'il survive aux redéploiements.
+RUN mkdir -p /app/.data && chown nextjs:nodejs /app/.data
 USER nextjs
 EXPOSE 3000
 CMD ["npm","run","start"]

@@ -28,6 +28,9 @@ services:
     # 512 Mo pour ~75 Mo reellement consommes : sept fois la marge. Assez large pour ne jamais
     # gener un pic normal, assez bas pour qu'une fuite s'arrete ici.
     mem_limit: 512m
+    # Commandes de secours, clients et paniers locaux : sans volume, chaque redéploiement les effaçait.
+    volumes:
+      - shop-data:/app/.data
     healthcheck:
       test: ["CMD-SHELL","wget -qO- http://127.0.0.1:3000/ >/dev/null 2>&1 || exit 1"]
       interval: 20s
@@ -46,3 +49,5 @@ services:
     networks: [yowyob]
 networks:
   yowyob: { external: true, name: yowyob }
+volumes:
+  shop-data:
