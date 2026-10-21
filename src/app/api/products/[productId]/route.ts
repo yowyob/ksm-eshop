@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { backendFetch } from '@/lib/api-client';
+import { lireProduit, modifierProduit, retirerProduit } from '@/lib/kernel-catalog';
 
 type Context = {
   params: Promise<{ productId: string }>;
@@ -7,21 +7,14 @@ type Context = {
 
 export async function GET(request: NextRequest, { params }: Context) {
   const { productId } = await params;
-  const result = await backendFetch(`/api/products/${productId}`, {
-    method: 'GET',
-  });
-  return Response.json(result);
+  return Response.json(await lireProduit(productId));
 }
 
 export async function PATCH(request: NextRequest, { params }: Context) {
   const { productId } = await params;
   try {
     const body = await request.json();
-    const result = await backendFetch(`/api/products/${productId}`, {
-      method: 'PATCH',
-      body: JSON.stringify(body),
-    });
-    return Response.json(result);
+    return Response.json(await modifierProduit(productId, body));
   } catch (error: any) {
     return Response.json({
       success: false,
@@ -33,8 +26,5 @@ export async function PATCH(request: NextRequest, { params }: Context) {
 
 export async function DELETE(request: NextRequest, { params }: Context) {
   const { productId } = await params;
-  const result = await backendFetch(`/api/products/${productId}`, {
-    method: 'DELETE',
-  });
-  return Response.json(result);
+  return Response.json(await retirerProduit(productId));
 }

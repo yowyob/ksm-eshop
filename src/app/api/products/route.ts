@@ -1,283 +1,79 @@
 import { NextRequest } from 'next/server';
 import { backendFetch } from '@/lib/api-client';
+import { creerProduit, listerProduits } from '@/lib/kernel-catalog';
 import { getLocalReservedQuantities } from '@/lib/local-db';
 import { isOrgSuspended } from '@/lib/suspended-orgs';
 
 export const dynamic = 'force-dynamic';
 
+/** Retire des quantités affichées ce que des paniers en cours retiennent localement. */
+function deduireLesReservations(produits: any[], organizationId: string | undefined) {
+  const reserved = getLocalReservedQuantities(organizationId);
+  produits.forEach((p: any) => {
+    if (reserved[p.id] && typeof p.quantity === 'number') {
+      p.quantity = Math.max(0, p.quantity - reserved[p.id]);
+      p.stock = p.quantity;
+    }
+  });
+  return produits;
+}
+
+/**
+ * Le catalogue de la vitrine.
+ *
+ * Il n'y a plus de produits de démonstration : servis à chaque échec du noyau ou catalogue vide, ils
+ * ont masqué pendant deux mois que la boutique ne lisait plus rien (produits fictifs en vitrine, et
+ * commandables). Une erreur se voit comme telle, un catalogue vide aussi.
+ */
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
-  const organizationId = searchParams.get('organizationId') || process.env.DEFAULT_ORGANIZATION_ID || 'o1';
+  const organizationId = searchParams.get('organizationId') || process.env.DEFAULT_ORGANIZATION_ID;
   const familyCode = searchParams.get('familyCode') || undefined;
   const status = searchParams.get('status') || undefined;
 
-  // Si l'organisation spécifique est suspendue, on ne retourne aucun produit
-  if (organizationId !== 'ALL' && isOrgSuspended(organizationId)) {
-    return Response.json({
-      success: true,
-      data: []
-    });
+  if (!organizationId) {
+    return Response.json({ success: false, message: "Aucune organisation n'est configurée pour la boutique.", data: [] },
+      { status: 500 });
   }
 
-  const mockProducts = [
-    {
-      id: 'demo-prod-1',
-      organizationId: 'demo-org',
-      code: 'PROD-001',
-      sku: 'PROD-001',
-      name: 'Casque Audio Sans Fil',
-      description: 'Casque audio haute définition avec réduction de bruit active. Parfait pour la musique et les appels.',
-      categoryId: 'c1',
-      status: 'ACTIVE',
-      photo: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&q=80&w=600',
-      unitPrice: 45000,
-      wholesalePrice: 40000,
-      currency: 'FCFA',
-      tenantName: 'KSM GADGETS',
-      options: [
-        { name: 'Couleur', values: ['Noir', 'Blanc', 'Argent'] }
-      ]
-    },
-    {
-      id: 'demo-prod-2',
-      organizationId: 'demo-org',
-      code: 'PROD-002',
-      sku: 'PROD-002',
-      name: 'Montre Connectée Sport',
-      description: 'Montre connectée avec suivi de fréquence cardiaque, GPS et étanche.',
-      categoryId: 'c2',
-      status: 'ACTIVE',
-      photo: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=600',
-      unitPrice: 25000,
-      wholesalePrice: 22000,
-      currency: 'FCFA',
-      tenantName: 'KSM GADGETS',
-      options: [
-        { name: 'Couleur du bracelet', values: ['Noir', 'Bleu', 'Rose'] },
-        { name: 'Taille', values: ['S', 'L'] }
-      ]
-    },
-    {
-      id: 'demo-prod-3',
-      organizationId: 'o1',
-      code: 'PROD-003',
-      sku: 'PROD-003',
-      name: 'Enceinte Bluetooth',
-      description: 'Enceinte portable puissante avec 12h d\'autonomie et son à 360 degrés.',
-      categoryId: 'c1',
-      status: 'ACTIVE',
-      photo: 'https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?auto=format&fit=crop&q=80&w=600',
-      unitPrice: 18000,
-      wholesalePrice: 15000,
-      currency: 'FCFA',
-      tenantName: 'KSM SARL',
-      options: [
-        { name: 'Modèle', values: ['Standard', 'Pro'] }
-      ]
-    },
-    {
-      id: 'demo-prod-4',
-      organizationId: 'o2',
-      code: 'PROD-004',
-      sku: 'PROD-004',
-      name: 'Sneakers Urbaines',
-      description: 'Chaussures de sport urbaines, confortables et stylées.',
-      categoryId: 'c3',
-      status: 'ACTIVE',
-      photo: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=600',
-      unitPrice: 35000,
-      wholesalePrice: 30000,
-      currency: 'FCFA',
-      tenantName: 'KSM FASHION',
-      options: [
-        { name: 'Pointure', values: ['40', '41', '42', '43'] },
-        { name: 'Couleur', values: ['Rouge', 'Noir/Blanc'] }
-      ]
-    },
-    {
-      id: 'demo-prod-5',
-      organizationId: 'o3',
-      code: 'PROD-005',
-      sku: 'PROD-005',
-      name: 'Sac à Dos Pro',
-      description: 'Sac à dos pour ordinateur avec port USB de recharge intégré.',
-      categoryId: 'c4',
-      status: 'ACTIVE',
-      photo: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&q=80&w=600',
-      unitPrice: 22000,
-      wholesalePrice: 18000,
-      currency: 'FCFA',
-      tenantName: 'KSM LUGGAGE',
-      options: [
-        { name: 'Couleur', values: ['Noir', 'Gris', 'Bleu Marine'] }
-      ]
-    },
-    {
-      id: 'demo-prod-6',
-      organizationId: 'o1',
-      code: 'PROD-006',
-      sku: 'PROD-006',
-      name: 'Écran 27" 4K',
-      description: 'Moniteur haute résolution pour professionnels de l\'image.',
-      categoryId: 'c1',
-      status: 'ACTIVE',
-      photo: 'https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?auto=format&fit=crop&q=80&w=600',
-      unitPrice: 195000,
-      wholesalePrice: 180000,
-      currency: 'FCFA',
-      tenantName: 'KSM SARL',
-      options: []
-    }
-  ];
+  // Si l'organisation spécifique est suspendue, on ne retourne aucun produit
+  if (organizationId !== 'ALL' && isOrgSuspended(organizationId)) {
+    return Response.json({ success: true, data: [] });
+  }
 
   if (organizationId === 'ALL') {
-    // Fetch all organizations first
     const orgsResult = await backendFetch('/api/organizations', { method: 'GET' });
-    let orgs: any[] = [];
-    if (orgsResult.success && orgsResult.data) {
-      const raw = orgsResult.data;
-      if (Array.isArray(raw)) orgs = raw;
-      else if (raw?.content && Array.isArray(raw.content)) orgs = raw.content;
-      else if (raw?.data && Array.isArray(raw.data)) orgs = raw.data;
-      else if (raw && typeof raw === 'object' && raw.id) orgs = [raw];
+    if (!orgsResult.success) {
+      console.error('[PRODUITS] Liste des organisations indisponible :', orgsResult.message);
+      return Response.json({ ...orgsResult, data: [] }, { status: 502 });
     }
-
+    const raw: any = orgsResult.data;
+    let orgs: any[] = Array.isArray(raw) ? raw
+      : Array.isArray(raw?.content) ? raw.content
+      : Array.isArray(raw?.data) ? raw.data
+      : raw?.id ? [raw] : [];
     // Filtrer les organisations suspendues pour ne pas afficher leurs produits
     orgs = orgs.filter((org: any) => !isOrgSuspended(org.id));
 
-    if (orgs.length === 0) {
-      return Response.json({ success: true, data: mockProducts.filter(p => p.status === 'ACTIVE') });
-    }
-
-    // Fetch products for each organization
-    const productPromises = orgs.map(async (org) => {
-      try {
-        const prodRes = await backendFetch('/api/product-core/catalog', {
-          method: 'GET',
-          params: { organizationId: org.id, familyCode, status },
-          headers: {
-            'X-Organization-Id': org.id
-          }
-        });
-        
-        console.log(`[DEBUG] prodRes for ${org.id}:`, JSON.stringify(prodRes).substring(0, 200));
-
-        if (prodRes.success && prodRes.data) {
-          let content = prodRes.data.content || prodRes.data;
-          if (!Array.isArray(content)) content = [];
-          
-          // Apply reserved quantities
-          const reserved = getLocalReservedQuantities(org.id);
-          content.forEach((p: any) => {
-            // Assign tenantName/organizationId for the frontend
-            p.organizationId = org.id;
-            p.tenantName = org.displayName || org.shortName || org.legalName || org.code || org.name || org.id;
-            
-            if (reserved[p.id]) {
-              if (typeof p.quantity === 'number') p.quantity = Math.max(0, p.quantity - reserved[p.id]);
-              if (typeof p.inStock === 'number') p.inStock = Math.max(0, p.inStock - reserved[p.id]);
-              if (p.variants && Array.isArray(p.variants)) {
-                 p.variants.forEach((v: any) => {
-                   if (reserved[v.id]) {
-                     if (typeof v.quantity === 'number') v.quantity = Math.max(0, v.quantity - reserved[v.id]);
-                     if (typeof v.inStock === 'number') v.inStock = Math.max(0, v.inStock - reserved[v.id]);
-                   }
-                 });
-              }
-            }
-          });
-          return content;
-        }
-      } catch (err) {
-        console.error(`Failed to fetch products for org ${org.id}`, err);
+    const parOrganisation = await Promise.all(orgs.map(async (org: any) => {
+      const r = await listerProduits(org.id, { familyCode, status }, { 'X-Organization-Id': org.id });
+      if (!r.success) {
+        console.error(`[PRODUITS] Catalogue de l'organisation ${org.id} indisponible :`, r.message);
+        return [];
       }
-      return [];
-    });
-
-    const allProductsArrays = await Promise.all(productPromises);
-    const allProducts = allProductsArrays.flat();
-
-    // Filtre pour ne garder que les produits actifs (ACTIVE)
-    const activeProducts = allProducts.filter((p: any) => p.status === 'ACTIVE');
-
-    if (activeProducts.length === 0) {
-      // Filtrer aussi le mock par défaut pour s'assurer qu'il est actif
-      return Response.json({ success: true, data: mockProducts.filter(p => p.status === 'ACTIVE') }); 
-    }
-
-    return Response.json({
-      success: true,
-      data: activeProducts
-    });
+      const nom = org.displayName || org.shortName || org.legalName || org.code || org.name || org.id;
+      return deduireLesReservations((r.data ?? []).map((p) => ({ ...p, organizationId: org.id, tenantName: nom })), org.id);
+    }));
+    return Response.json({ success: true, data: parOrganisation.flat().filter((p: any) => p.status === 'ACTIVE') });
   }
 
-  const result = await backendFetch('/api/product-core/catalog', {
-    method: 'GET',
-    params: {
-      organizationId,
-      familyCode,
-      status: 'ACTIVE', // Forcer le statut ACTIVE lors de la requête au backend
-    },
-  });
-
+  // La vitrine ne montre que ce qui est en vente.
+  const result = await listerProduits(organizationId, { familyCode, status: 'ACTIVE' });
   if (!result.success) {
-    const reserved = getLocalReservedQuantities(organizationId);
-    const orgMockProducts = mockProducts.filter(p => p.organizationId === organizationId || organizationId === 'ALL');
-    const updatedMock = orgMockProducts.map(p => {
-       const deduction = reserved[p.id] || 0;
-       return { ...p, quantity: Math.max(0, ((p as any).quantity || 0) - deduction) };
-     });
-    // Filtre les mocks inactifs
-    const activeMocks = updatedMock.filter(p => p.status === 'ACTIVE');
-    return Response.json({
-      success: true,
-      data: activeMocks.length > 0 ? activeMocks : mockProducts.filter(p => p.status === 'ACTIVE')
-    });
+    console.error(`[PRODUITS] Catalogue de l'organisation ${organizationId} indisponible :`, result.message);
+    return Response.json({ ...result, data: [] }, { status: 502 });
   }
-  
-  if (result.success && result.data) {
-    const reserved = getLocalReservedQuantities(organizationId);
-    let content = result.data.content || result.data;
-    let list: any[] = Array.isArray(content) ? content : [];
-    
-    // Filtrer pour n'avoir que les produits actifs (ACTIVE)
-    const activeContent = list.filter((p: any) => p.status === 'ACTIVE');
-    
-    activeContent.forEach((p: any) => {
-      if (reserved[p.id]) {
-        if (typeof p.quantity === 'number') p.quantity = Math.max(0, p.quantity - reserved[p.id]);
-        if (typeof p.inStock === 'number') p.inStock = Math.max(0, p.inStock - reserved[p.id]);
-        if (p.variants && Array.isArray(p.variants)) {
-           p.variants.forEach((v: any) => {
-             if (reserved[v.id]) {
-               if (typeof v.quantity === 'number') v.quantity = Math.max(0, v.quantity - reserved[v.id]);
-               if (typeof v.inStock === 'number') v.inStock = Math.max(0, v.inStock - reserved[v.id]);
-             }
-           });
-        }
-      }
-    });
-
-    // Si aucun produit actif n'est présent sur le Kernel, renvoyer les produits de démonstration
-    const finalContent = activeContent.length > 0 
-      ? activeContent 
-      : mockProducts.filter(p => p.status === 'ACTIVE' && (p.organizationId === organizationId || organizationId === 'ALL'));
-    
-    if (Array.isArray(result.data)) {
-      return Response.json({ ...result, data: finalContent });
-    } else if (result.data.content) {
-      return Response.json({ 
-        ...result, 
-        data: { 
-          ...result.data, 
-          content: finalContent 
-        } 
-      });
-    }
-    return Response.json({ ...result, data: finalContent });
-  }
-
-  return Response.json(result);
+  return Response.json({ success: true, data: deduireLesReservations(result.data ?? [], organizationId) });
 }
 
 export async function POST(request: NextRequest) {
@@ -288,12 +84,9 @@ export async function POST(request: NextRequest) {
       body.organizationId = process.env.DEFAULT_ORGANIZATION_ID || 'o1';
     }
 
-    // Écriture (création) : reste sur le modèle B (product.*) — A n'expose que la lecture
-    // catalogue. La projection B->A côté kernel peuple product_core en fire-and-forget.
-    const result = await backendFetch('/api/products', {
-      method: 'POST',
-      body: JSON.stringify(body),
-    });
+    // Le modèle B (product.*) et sa projection ont disparu du noyau : la mise en vente passe par
+    // l'API produit, qui crée la définition et l'offre de l'organisation en un appel.
+    const result = await creerProduit(body);
 
     return Response.json(result);
   } catch (error: any) {

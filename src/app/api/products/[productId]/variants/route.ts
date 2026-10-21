@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { backendFetch } from '@/lib/api-client';
+import { listerVariantes } from '@/lib/kernel-catalog';
 
 type Context = {
   params: Promise<{ productId: string }>;
@@ -7,17 +8,15 @@ type Context = {
 
 export async function GET(request: NextRequest, { params }: Context) {
   const { productId } = await params;
-  const result = await backendFetch(`/api/products/${productId}/variants`, {
-    method: 'GET',
-  });
-  return Response.json(result);
+  return Response.json(await listerVariantes(productId));
 }
 
 export async function POST(request: NextRequest, { params }: Context) {
   const { productId } = await params;
   try {
     const body = await request.json();
-    const result = await backendFetch(`/api/products/${productId}/variants`, {
+    // Les variantes vivent sur la définition du produit (l'ancienne route /api/products a disparu).
+    const result = await backendFetch(`/api/product-core/products/${productId}/variants`, {
       method: 'POST',
       body: JSON.stringify(body),
     });

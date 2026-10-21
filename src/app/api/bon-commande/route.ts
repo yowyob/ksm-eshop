@@ -64,39 +64,9 @@ export async function POST(request: NextRequest) {
       result.message = 'Saved locally via fallback';
     }
 
-    // Réduction optimiste de la quantité (stock) sur les produits
-    if (body.lines && Array.isArray(body.lines)) {
-      try {
-        for (const line of body.lines) {
-          let pId = line.productId;
-          if (pId && pId.startsWith('v-')) {
-            pId = pId.replace('v-', '');
-            // handle case like v-ID-index
-            if (pId.includes('-')) {
-              pId = pId.split('-')[0];
-            }
-          }
-          
-          if (pId) {
-            // Fetch current product
-            const pRes = await backendFetch(`/api/products/${pId}`, { method: 'GET', headers });
-            if (pRes.success && pRes.data) {
-              const currentQ = pRes.data.quantity || 0;
-              const newQ = Math.max(0, currentQ - line.quantity);
-              
-              // Update product quantity
-              await backendFetch(`/api/products/${pId}`, {
-                method: 'PATCH',
-                headers,
-                body: JSON.stringify({ quantity: newQ })
-              });
-            }
-          }
-        }
-      } catch (e) {
-        console.error('[DEBUG POST BON-COMMANDE] Error reducing stock:', e);
-      }
-    }
+    // Le stock n'est plus décrémenté ici en réécrivant la quantité du produit : ce champ
+    // n'existe plus (la route /api/products a disparu du noyau), et le stock vit dans le
+    // grand-livre. C'est la confirmation de la commande par le noyau qui sort la marchandise.
 
     return Response.json(result);
   } catch (error: any) {
