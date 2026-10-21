@@ -190,50 +190,9 @@ export async function POST(request: NextRequest) {
         saveLocalOrder(orderPayload);
       }
 
-      // Réduire la quantité (stock) des produits après commande
-      for (const item of itemsList) {
-        const pId = item.productId;
-        if (pId) {
-          try {
-            const pRes = await backendFetch(`/api/products/${pId}`, {
-              method: 'GET',
-              headers: tHeadersAuth
-            });
-            if (pRes.success && pRes.data) {
-              const product = pRes.data;
-              const currentQ = product.quantity || 0;
-              const newQ = Math.max(0, currentQ - (item.quantity || 1));
-              
-              // Inclure tous les champs requis et existants pour la mise à jour sur le Kernel
-              const payload = {
-                organizationId: tenantId,
-                sku: product.sku || `SKU-${pId.slice(0, 8)}`,
-                name: product.name,
-                variantLabel: product.variantLabel || 'Standard',
-                unitPrice: product.unitPrice || 1,
-                quantity: newQ,
-                status: product.status || 'ACTIVE',
-                familyCode: product.familyCode || 'STANDARD',
-                currency: product.currency || 'FCFA'
-              };
-
-              const updateRes = await backendFetch(`/api/products/${pId}`, {
-                method: 'PATCH',
-                headers: tHeadersAuth,
-                body: JSON.stringify(payload)
-              });
-
-              if (updateRes.success) {
-                console.log(`[CHECKOUT] Stock réduit avec succès pour ${pId}: ${currentQ} -> ${newQ}`);
-              } else {
-                console.error(`[CHECKOUT] Échec de réduction de stock pour ${pId}:`, updateRes.message);
-              }
-            }
-          } catch (e) {
-            console.error(`[CHECKOUT] Exception lors de la réduction de stock pour ${pId}:`, e);
-          }
-        }
-      }
+      // Le stock n'est plus décrémenté ici en réécrivant la quantité du produit : ce champ
+      // n'existe plus (la route /api/products a disparu du noyau), et le stock vit dans le
+      // grand-livre. C'est la confirmation de la commande par le noyau qui sort la marchandise.
 
       ordersCreated.push(orderPayload);
     }

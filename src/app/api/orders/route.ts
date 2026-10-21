@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { backendFetch } from '@/lib/api-client';
+import { listerProduits } from '@/lib/kernel-catalog';
 import { getKernelToken } from '@/lib/kernel-auth';
 
 /**
@@ -202,16 +203,12 @@ export async function GET(request: NextRequest) {
       await Promise.allSettled(
         orgIds.map(async (orgId) => {
           try {
-            const pRes = await backendFetch(`/api/products?organizationId=${orgId}&size=1000`, {
-              method: 'GET',
-              headers: {
-                Authorization: `Bearer ${adminToken}`,
-                'X-Organization-Id': orgId
-              }
+            const pRes = await listerProduits(orgId, {}, {
+              Authorization: `Bearer ${adminToken}`,
+              'X-Organization-Id': orgId
             });
             if (pRes.success && pRes.data) {
-              const list = Array.isArray(pRes.data) ? pRes.data : (pRes.data.content || pRes.data.data || []);
-              list.forEach((p: any) => {
+              pRes.data.forEach((p: any) => {
                 if (p.id) productsMap[p.id] = p.name;
               });
             }
